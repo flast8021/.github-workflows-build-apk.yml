@@ -17,14 +17,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Put Android cmdline-tools on PATH
-        run: echo "$ANDROID_HOME/cmdline-tools/latest/bin" >> "$GITHUB_PATH"
-
-      - name: Install required Android SDK packages
-        run: |
-          yes | sdkmanager --licenses > /dev/null 2>&1 || true
-          sdkmanager "platform-tools" "platforms;android-35" "build-tools;35.0.0"
-
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
 
