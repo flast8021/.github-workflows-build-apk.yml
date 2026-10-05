@@ -44,3 +44,18 @@ Play Store distribution.
   earlier risk-tool report are unchanged — they live in the calculator JavaScript, which this
   wrapper does not modify.
 - Not tested on a physical device from this environment; test before relying on it for live trades.
+
+### Version 2.0: background scanner
+
+- **Background scanner card** (Scanner section, app only): On/Off switch and exchange (MEXC by default, or Binance / Bybit).
+- When on, `ScanService` (a foreground service with a permanent "Scanner running" notification) runs the same scanner code as the app every 5 minutes, using your scan settings and the calculator's fees, minimum R:R, balance and risk.
+- **Alerts only for Ready setups**: one notification per new Ready signal with entry, SL, TP, R:R and expiry.
+- **Quiet hours 22:00 to 06:00 phone time**: no scans, no alerts. It resumes automatically at 06:00.
+- **Off stops everything**: the service, timers, alarms and wake lock. The notification also has a Stop button.
+- **Scanner performance is stored on the phone** and updated by background scans; the app shows it when opened.
+- Exchange requests are made by the phone itself (`MWNative.httpGet`), so no proxy is needed in the app. Only the MEXC, Binance and Bybit API hosts are allowed.
+- Restarts after a reboot or app update if it was on.
+
+**After installing:** allow notifications when asked, then tap **Battery settings** in the card and set Manner Wein to Unrestricted / Don't optimise. Samsung/Xiaomi phones may also need the app removed from "sleeping apps".
+
+New files: `ScanService.java`, `NativeBridge.java`, `AppWebClient.java`, `Prefs.java`, `BootReceiver.java`, `res/drawable/ic_stat.xml`.
