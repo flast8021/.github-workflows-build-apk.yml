@@ -7,10 +7,11 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
-import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
+import android.media.AudioAttributes;
+import android.media.RingtoneManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -28,33 +29,34 @@ import java.util.Locale;
 
 /**
  * Background scanner. Runs the same scanner code as the app (a hidden copy of index.html)
- * every 5 minutes, outside quiet hours (22:00 to 06:00 phone time), and posts a notification
- * only when a setup turns Ready. Signals are saved to the same Scanner performance store the app shows.
+ * every 5 minutes, outside quiet hours (22:00 to 06:00 phone time).
+ * Posts a pop-up (heads-up) notification only when a setup turns Ready; nothing when there is none.
+ * Each scan also re-checks tracked signals until their stop or target is hit (Scanner performance).
  */
 public class ScanService extends Service implements NativeBridge.Listener {
     static final String ACT_START = "com.mannerwein.app.START";
     static final String ACT_STOP = "com.mannerwein.app.STOP";
     static final String ACT_TICK = "com.mannerwein.app.TICK";
+    static final String EXTRA_ALERT = "fromAlert";
 
     private static final long INTERVAL = 5 * 60 * 1000L;
-    private static final long RUN_TIMEOUT = 4 * 60 * 1000L;
+    private static final long STALL = 90 * 1000L;        // no progress for this long = stuck
+    private static final long HARD_CAP = 6 * 60 * 1000L; // whole scan
     private static final int QUIET_FROM = 22, QUIET_TO = 6;
-    private static final int NOTE_ID = 1;
-    private static final String CH_RUN = "scanner", CH_ALERT = "alerts";
+    private static final int NOTE_ID = 1, SUMMARY_ID = 2;
+    // New channel ids: Android never lets an app raise the importance of an existing channel
+    private static final String CH_RUN = "scanner_status", CH_ALERT = "ready_popup";
+    private static final String GROUP = "mw_ready";
 
     private final Handler h = new Handler(Looper.getMainLooper());
     private WebView web;
     private boolean pageReady, running;
+    private long runStart, lastBeat;
+    private int loadFails;
     private PowerManager.WakeLock wake;
 
     private final Runnable tick = this::tick;
-    private final Runnable timeout = () -> {
-        running = false;
-        Prefs.ran(this, System.currentTimeMillis(), "Last scan timed out, retrying");
-        pageReady = false;
-        if (web != null) web.loadUrl(AppWebClient.HOME + "?bg=1");   // reload() would drop ?bg=1
-        scheduleNext();
-    };
+    private final Runnable watchdog = this::watchdog;
 
     @Override public IBinder onBind(Intent intent) { return null; }
 
@@ -62,11 +64,20 @@ public class ScanService extends Service implements NativeBridge.Listener {
     public void onCreate() {
         super.onCreate();
         NotificationManager nm = getSystemService(NotificationManager.class);
-        NotificationChannel run = new NotificationChannel(CH_RUN, "Scanner running", NotificationManager.IMPORTANCE_LOW);
-        run.setDescription("Shown while the background scanner is on");
+        try { nm.deleteNotificationChannel("scanner"); nm.deleteNotificationChannel("alerts"); } catch (Exception ignored) {}
+        NotificationChannel run = new NotificationChannel(CH_RUN, "Scanner status", NotificationManager.IMPORTANCE_MIN);
+        run.setDescription("Silent notification Android requires while the background scanner is on");
+        run.setShowBadge(false);
         nm.createNotificationChannel(run);
         NotificationChannel alert = new NotificationChannel(CH_ALERT, "Ready setups", NotificationManager.IMPORTANCE_HIGH);
-        alert.setDescription("A setup turned Ready");
+        alert.setDescription("Pop-up alert when a setup turns Ready");
+        alert.enableVibration(true);
+        alert.setVibrationPattern(new long[]{ 0, 250, 150, 250 });
+        alert.enableLights(true);
+        alert.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+        alert.setSound(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION),
+                new AudioAttributes.Builder().setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION).build());
         nm.createNotificationChannel(alert);
     }
 
@@ -81,8 +92,7 @@ public class ScanService extends Service implements NativeBridge.Listener {
         goForeground(Prefs.msg(this).isEmpty() ? "Starting..." : Prefs.msg(this));
         if (!Prefs.on(this)) { shutdown(); return START_NOT_STICKY; }
         ensureWeb();
-        h.removeCallbacks(tick);
-        h.post(tick);
+        if (!running) { h.removeCallbacks(tick); h.post(tick); }
         return START_STICKY;
     }
 
@@ -100,9 +110,18 @@ public class ScanService extends Service implements NativeBridge.Listener {
         web.setWebViewClient(new AppWebClient(this, false) {
             @Override public void onPageFinished(WebView view, String url) { pageReady = true; }
         });
+        // Give the hidden page a size and keep it awake so its JavaScript is not paused
+        web.layout(0, 0, 1080, 2340);
+        web.onResume();
         web.resumeTimers();
         pageReady = false;
         web.loadUrl(AppWebClient.HOME + "?bg=1");
+    }
+
+    private void reloadPage() {
+        pageReady = false;
+        if (web != null) { web.destroy(); web = null; }
+        ensureWeb();
     }
 
     private void tick() {
@@ -122,29 +141,59 @@ public class ScanService extends Service implements NativeBridge.Listener {
         if (running) return;
         if (!pageReady || web == null) { ensureWeb(); h.postDelayed(tick, 3000); return; }
         running = true;
-        Prefs.status(this, "Scanning " + exName(Prefs.ex(this)) + "...");
-        updateNote("Scanning " + exName(Prefs.ex(this)) + "...");
-        web.evaluateJavascript("window.MW&&MW.bg&&MW.bg.run(" + JSONObject.quote(Prefs.ex(this)) + ")", null);
-        h.postDelayed(timeout, RUN_TIMEOUT);
+        runStart = lastBeat = System.currentTimeMillis();
+        final String ex = Prefs.ex(this);
+        Prefs.status(this, "Scanning " + exName(ex) + "...");
+        updateNote("Scanning " + exName(ex) + "...");
+        web.evaluateJavascript("(window.MW&&MW.bg)?(MW.bg.run(" + JSONObject.quote(ex) + "),'started'):'missing'", r -> {
+            if (r != null && r.contains("started")) { loadFails = 0; return; }
+            // Page not ready yet: reload it and try again shortly
+            running = false;
+            h.removeCallbacks(watchdog);
+            loadFails++;
+            Prefs.status(this, "Scanner page not ready, retrying (" + loadFails + ")");
+            reloadPage();
+            h.postDelayed(tick, loadFails < 4 ? 5000 : INTERVAL);
+        });
+        h.removeCallbacks(watchdog);
+        h.postDelayed(watchdog, 15000);
+    }
+
+    // Ends a scan that has stopped making progress, so the next one can run
+    private void watchdog() {
+        if (!running) return;
+        long now = System.currentTimeMillis();
+        if (now - lastBeat < STALL && now - runStart < HARD_CAP) { h.postDelayed(watchdog, 15000); return; }
+        running = false;
+        Prefs.ran(this, now, "Last scan stalled (no data for " + ((now - lastBeat) / 1000) + "s). Check internet; retrying");
+        reloadPage();
+        scheduleNext();
+    }
+
+    @Override
+    public void onProgress(final String msg) {
+        h.post(() -> {
+            lastBeat = System.currentTimeMillis();
+            if (running) updateNote(exName(Prefs.ex(this)) + ": " + msg);
+        });
     }
 
     @Override
     public void onScanDone(final String json) {
         h.post(() -> {
-            h.removeCallbacks(timeout);
+            h.removeCallbacks(watchdog);
             running = false;
             String status = "Scan finished";
-            int n = 0;
+            JSONArray ready = null;
             try {
                 JSONObject o = new JSONObject(json);
                 status = o.optString("status", status);
-                JSONArray ready = o.optJSONArray("ready");
-                if (ready != null) {
-                    n = ready.length();
-                    for (int i = 0; i < ready.length(); i++) alert(ready.getJSONObject(i));
-                }
+                ready = o.optJSONArray("ready");
             } catch (Exception ignored) {}
-            Prefs.ran(this, System.currentTimeMillis(), exName(Prefs.ex(this)) + ": " + shorten(status) + (n > 0 ? " \u00B7 " + n + " new alert" + (n > 1 ? "s" : "") : ""));
+            int n = ready == null ? 0 : ready.length();
+            if (n > 0) alertAll(ready);   // no Ready setup = no alert at all
+            Prefs.ran(this, System.currentTimeMillis(), exName(Prefs.ex(this)) + ": " + shorten(status)
+                    + (n > 0 ? " \u00B7 " + n + " alert" + (n > 1 ? "s" : "") + " sent" : ""));
             scheduleNext();
         });
     }
@@ -192,19 +241,24 @@ public class ScanService extends Service implements NativeBridge.Listener {
     private void releaseWake() { if (wake != null && wake.isHeld()) wake.release(); }
 
     // ---------- notifications ----------
+    private PendingIntent openApp(boolean fromAlert, int req) {
+        Intent i = new Intent(this, MainActivity.class)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP | Intent.FLAG_ACTIVITY_CLEAR_TOP)
+                .putExtra(EXTRA_ALERT, fromAlert);
+        return PendingIntent.getActivity(this, req, i, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+    }
     private Notification runningNote(String text) {
-        PendingIntent open = PendingIntent.getActivity(this, 1, new Intent(this, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE);
         PendingIntent stop = PendingIntent.getService(this, 2, new Intent(this, ScanService.class).setAction(ACT_STOP),
                 PendingIntent.FLAG_IMMUTABLE);
         return new Notification.Builder(this, CH_RUN)
                 .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle("Scanner running")
+                .setContentTitle("Background scanner on")
                 .setContentText(text)
                 .setStyle(new Notification.BigTextStyle().bigText(text))
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
-                .setContentIntent(open)
+                .setShowWhen(false)
+                .setContentIntent(openApp(false, 1))
                 .addAction(new Notification.Action.Builder(null, "Stop", stop).build())
                 .build();
     }
@@ -212,26 +266,52 @@ public class ScanService extends Service implements NativeBridge.Listener {
         if (!canNotify()) return;
         getSystemService(NotificationManager.class).notify(NOTE_ID, runningNote(text));
     }
-    private void alert(JSONObject s) {
+
+    private void alertAll(JSONArray ready) {
         if (!canNotify()) return;
-        boolean lng = s.optInt("dir", 1) == 1;
-        String title = s.optString("base") + " " + (lng ? "LONG" : "SHORT") + " is Ready \u00B7 Grade " + s.optString("grade");
-        String text = "Limit " + s.optString("entry") + " \u00B7 SL " + s.optString("sl") + " \u00B7 TP " + s.optString("tp")
-                + " \u00B7 R:R 1:" + s.optString("rr");
-        String more = text + "\n" + s.optString("type") + ", " + s.optString("tf") + " trigger. Expires " + s.optString("exp")
-                + ". Confirm on your chart before entering.";
-        PendingIntent open = PendingIntent.getActivity(this, 1, new Intent(this, MainActivity.class)
-                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP), PendingIntent.FLAG_IMMUTABLE);
-        Notification n = new Notification.Builder(this, CH_ALERT)
-                .setSmallIcon(R.drawable.ic_stat)
-                .setContentTitle(title)
-                .setContentText(text)
-                .setStyle(new Notification.BigTextStyle().bigText(more))
-                .setAutoCancel(true)
-                .setCategory(Notification.CATEGORY_RECOMMENDATION)
-                .setContentIntent(open)
-                .build();
-        getSystemService(NotificationManager.class).notify((s.optString("base") + lng).hashCode(), n);
+        NotificationManager nm = getSystemService(NotificationManager.class);
+        StringBuilder lines = new StringBuilder();
+        for (int i = 0; i < ready.length(); i++) {
+            JSONObject s = ready.optJSONObject(i);
+            if (s == null) continue;
+            boolean lng = s.optInt("dir", 1) == 1;
+            String head = s.optString("base") + " " + (lng ? "LONG" : "SHORT") + " Ready \u00B7 Grade " + s.optString("grade");
+            String brief = "Limit " + s.optString("entry") + " \u00B7 SL " + s.optString("sl") + " \u00B7 TP " + s.optString("tp")
+                    + " \u00B7 R:R 1:" + s.optString("rr");
+            String full = brief + "\n" + s.optString("type") + ", " + s.optString("tf") + " trigger. Valid until "
+                    + s.optString("exp") + ".\nTap to open the scan results. Confirm on your chart before entering.";
+            lines.append(head).append(": ").append(brief).append('\n');
+            Notification n = new Notification.Builder(this, CH_ALERT)
+                    .setSmallIcon(R.drawable.ic_stat)
+                    .setContentTitle(head)            // brief pop-up shows this line
+                    .setContentText(brief)            // detailed pop-up shows this too
+                    .setStyle(new Notification.BigTextStyle().setBigContentTitle(head).bigText(full))
+                    .setTicker(head)
+                    .setCategory(Notification.CATEGORY_EVENT)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setPriority(Notification.PRIORITY_HIGH)
+                    .setDefaults(Notification.DEFAULT_ALL)
+                    .setShowWhen(true)
+                    .setWhen(System.currentTimeMillis())
+                    .setAutoCancel(true)
+                    .setGroup(GROUP)
+                    .setContentIntent(openApp(true, 100 + i))
+                    .build();
+            nm.notify((s.optString("base") + lng + s.optString("entry")).hashCode(), n);
+        }
+        if (ready.length() > 1) {
+            Notification sum = new Notification.Builder(this, CH_ALERT)
+                    .setSmallIcon(R.drawable.ic_stat)
+                    .setContentTitle(ready.length() + " setups Ready")
+                    .setContentText("Tap to open the scan results")
+                    .setStyle(new Notification.BigTextStyle().bigText(lines.toString().trim()))
+                    .setGroup(GROUP)
+                    .setGroupSummary(true)
+                    .setAutoCancel(true)
+                    .setContentIntent(openApp(true, 99))
+                    .build();
+            nm.notify(SUMMARY_ID, sum);
+        }
     }
     private boolean canNotify() {
         return Build.VERSION.SDK_INT < 33

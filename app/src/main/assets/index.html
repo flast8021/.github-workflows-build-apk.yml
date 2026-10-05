@@ -758,7 +758,7 @@ select option{background:#171034 !important}
   </div>
   <div class="card" id="perfCard">
     <h2>Scanner performance <button type="button" class="ibtn" data-info="infoPerf" aria-label="More info" title="More info" aria-expanded="false">i</button></h2>
-    <p class="note info-pop" id="infoPerf">Every Ready setup the scanner shows (including ones that turn Ready on live watch) is logged in this browser. The scanner then replays 15m candles: did price come back to the entry before it expired, then did it hit the stop or the target first? If both happen in the same candle it counts as a loss. Results are checked after each scan and when the page opens. Use them to see which grades, setup types and levels actually work for you.</p>
+    <p class="note info-pop" id="infoPerf">Every Ready setup the scanner shows (including ones that turn Ready on live watch) is logged in this browser. The scanner then replays 15m candles: did price come back to the entry before it expired, then did it hit the stop or the target first? If both happen in the same candle it counts as a loss. Entry, SL and TP stay exactly as they were when the signal fired. Waiting and open trades are re-checked after every scan (every 5 minutes with the background scanner) until the entry expires or the stop or target is hit, and are listed under Being tracked. Use them to see which grades, setup types and levels actually work for you.</p>
     <div id="perfBody"></div>
     <div class="btns" style="margin-top:10px"><button type="button" class="btn" id="btnPerfUpd">Update results</button><button type="button" class="btn" id="btnPerfClr">Clear history</button></div>
   </div>
@@ -1985,7 +1985,11 @@ select option{background:#171034 !important}
   } };
   async function getJSON(url){
     if (NATIVE){
-      const body = await new Promise((res, rej) => { const id = String(++netId); netCbs[id] = { res, rej }; window.MWNative.httpGet(id, url); });
+      const body = await new Promise((res, rej) => {
+        const id = String(++netId); netCbs[id] = { res, rej };
+        setTimeout(() => { if (netCbs[id]){ delete netCbs[id]; rej(new TypeError("Failed to fetch (no reply in 40s)")); } }, 40000);
+        window.MWNative.httpGet(id, url);
+      });
       return JSON.parse(body);
     }
     let proxy = $("proxy").value.trim().replace(/\/?\?url=.*$/i, "").replace(/\/+$/, "");
@@ -2547,6 +2551,7 @@ select option{background:#171034 !important}
         } catch(e){ fails++; lastErr = e && e.message ? e.message : String(e); rows.push({ tk, cands: [], reason: "Data failed to load" }); }
         done++;
         prog.style.width = Math.round(done / list.length * 100) + "%";
+        if (BG && window.MWNative.bgProgress) window.MWNative.bgProgress("Scanning " + done + "/" + list.length);
         $("status").textContent = "Scanning " + done + "/" + list.length + ": " + tk.base + "USDT";
       });
       if (fails === list.length) throw new Error("Candle data could not be loaded for any coin. Last error: " + lastErr);
@@ -2769,25 +2774,36 @@ select option{background:#171034 !important}
     sigSave(a); renderPerf();
   }
   // Replays 15m candles after each signal: filled? then stop or target first? (same-candle tie counts as a loss)
+  // Replays candles after each signal: filled? then stop or target first? (same-candle tie counts as a loss)
+  // Open trades are tracked until the stop or target is hit, however long that takes.
   function resolveSig(s, c){
     const d = s.dir, up = d === 1;
-    if (!c.length || c[0].t > s.t){ if (Date.now() - s.t > 26 * HOUR) s.res = s.res === "open" ? "timeout" : "nodata"; return; }
+    if (!c.length || c[0].t > s.t){ s.res = s.res === "open" || s.res === "pending" ? s.res : "nodata"; s.gap = true; return; }
+    s.gap = false;
     let filled = false;
     for (const b of c.filter(k => k.t >= s.t)){
       if (!filled){
         if (b.t > s.exp){ s.res = "expired"; return; }
         if (up ? b.l <= s.entry : b.h >= s.entry){
-          filled = true;
-          if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; return; }
+          filled = true; s.fillT = s.fillT || b.t;
+          if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; s.endT = b.t; return; }
           continue;
         }
         if (up ? b.h >= s.M : b.l <= s.M){ s.res = "missed"; return; }
       } else {
-        if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; return; }
-        if (up ? b.h >= s.tp : b.l <= s.tp){ s.res = "win"; s.R = +s.rr.toFixed(2); return; }
+        if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; s.endT = b.t; return; }
+        if (up ? b.h >= s.tp : b.l <= s.tp){ s.res = "win"; s.R = +(+s.rr).toFixed(2); s.endT = b.t; return; }
       }
     }
+    if (c.length){ const last = c[c.length - 1]; s.lastPx = last.c; s.chkT = Date.now(); }
     s.res = filled ? "open" : Date.now() > s.exp ? "expired" : "pending";
+  }
+  // 15m candles cover ~25h. For older trades, 1H candles (10 days) fill the part before that.
+  async function sigCandles(ex, sym, from){
+    const c15 = closedOnly(await EX[ex].klines(sym, "15m"), "15m");
+    if (!c15.length || c15[0].t <= from) return c15;
+    const c1 = closedOnly(await EX[ex].klines(sym, "1h"), "1h").filter(k => k.t + 3600000 <= c15[0].t);
+    return c1.concat(c15);
   }
   let perfBusy = false, perfP = null;
   function updateSignals(){                       // one check at a time; callers share it
@@ -2802,14 +2818,14 @@ select option{background:#171034 !important}
     const groups = {};
     open.forEach(s => { const k = s.ex + "|" + s.sym; (groups[k] = groups[k] || []).push(s); });
     await pool(Object.values(groups), 2, async g => {
-      try { const c = closedOnly(await EX[g[0].ex].klines(g[0].sym, "15m"), "15m"); g.forEach(s => resolveSig(s, c)); } catch(e){}
+      try { const c = await sigCandles(g[0].ex, g[0].sym, Math.min(...g.map(s => s.t))); g.forEach(s => resolveSig(s, c)); } catch(e){}
     });
     const fresh = sigLoad();                         // keep signals logged while this was running
     a.forEach(s => { const f = fresh.find(z => z.t === s.t && z.sym === s.sym && z.dir === s.dir); if (f) Object.assign(f, s); });
     sigSave(fresh); perfBusy = false; renderPerf();
   }
   const RES = { win: ["Win", "pos"], loss: ["Loss", "neg"], open: ["In trade", ""], pending: ["Waiting for entry", ""], missed: ["Missed (no retest)", "k"],
-                expired: ["Expired (no fill)", "k"], timeout: ["No result after 24h", "k"], nodata: ["No data", "k"] };
+                expired: ["Expired (no fill)", "k"], timeout: ["No result", "k"], nodata: ["No data", "k"] };
   function renderPerf(){
     const box = $("perfBody"); if (!box) return;
     const a = sigLoad();
@@ -2835,12 +2851,19 @@ select option{background:#171034 !important}
     h += '<div class="tablewrap ptab"><table><thead><tr><th></th><th>Trades</th><th>Win %</th><th>Avg R</th></tr></thead><tbody>' +
       grp("Grade", s => s.grade, k => "Grade " + k) + grp("Setup type", s => s.type, k => TYPE[k] || k) + grp("Trigger", s => s.tf, k => k + " trigger") +
       grp("Level type", s => (LT[s.lt] || { g: s.lt }).g, k => k) + grp("Direction", s => s.dir, k => k === 1 ? "Long" : "Short") + '</tbody></table></div>';
-    h += '<h3>Recent signals</h3><div class="tablewrap"><table><tbody>' + a.slice(-10).reverse().map(s => {
+    const live = a.filter(s => s.res === "open" || s.res === "pending");
+    const row = s => {
       const r = RES[s.res] || [s.res, ""];
       const d = new Date(s.t);
-      return '<tr><td>' + String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hhmm(s.t) + '</td><td><b>' + esc(s.base) + '</b> ' + (s.dir === 1 ? "L" : "S") +
-             '</td><td>' + s.grade + '</td><td class="' + r[1] + '">' + r[0] + (s.res === "win" ? " +" + s.R + "R" : s.res === "loss" ? " -1R" : "") + '</td></tr>';
-    }).join("") + '</tbody></table></div>';
+      const pnl = s.res === "open" && isFinite(s.lastPx) ? ((s.lastPx - s.entry) * s.dir / Math.abs(s.entry - s.sl)) : null;
+      return '<tr><td>' + String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hhmm(s.t) + '</td><td><b>' + esc(s.base) + '</b> ' + (s.dir === 1 ? "L" : "S") + ' &middot; ' + s.grade +
+             '</td><td><small>E ' + fmtPx(s.entry) + '<br>SL ' + fmtPx(s.sl) + ' &middot; TP ' + fmtPx(s.tp) + '</small></td><td class="' + r[1] + '">' + r[0] +
+             (s.res === "win" ? " +" + s.R + "R" : s.res === "loss" ? " -1R" : "") +
+             (pnl !== null ? '<br><small class="' + (pnl >= 0 ? "pos" : "neg") + '">now ' + (pnl >= 0 ? "+" : "") + pnl.toFixed(2) + 'R</small>' : "") +
+             (s.res === "pending" ? '<br><small class="k">until ' + hhmm(s.exp) + '</small>' : "") + '</td></tr>';
+    };
+    if (live.length) h += '<h3>Being tracked (' + live.length + ')</h3><div class="tablewrap"><table><tbody>' + live.slice().reverse().map(row).join("") + '</tbody></table></div>';
+    h += '<h3>Recent signals</h3><div class="tablewrap"><table><tbody>' + a.slice(-10).reverse().map(row).join("") + '</tbody></table></div>';
     box.innerHTML = h;
   }
   $("btnPerfUpd").addEventListener("click", () => { toast("Checking signal results..."); updateSignals(); });
@@ -3324,6 +3347,7 @@ select option{background:#171034 !important}
         const key = s => s.t + "|" + s.sym + "|" + s.dir;
         const before = new Set(sigLoad().map(key));
         await scan(true);
+        if (window.MWNative.bgProgress) window.MWNative.bgProgress("Updating tracked signals");
         await updateSignals();
         const fresh = sigLoad().filter(s => !before.has(key(s)));
         window.MWNative.bgDone(JSON.stringify({ status: $("status").textContent, ready: fresh.map(s => ({
@@ -3357,12 +3381,13 @@ select option{background:#171034 !important}
     bgRender();
   }
   // Called by the app when it comes back to the front
-  window.MW.app = { resume(){
+  window.MW.app = { resume(fromAlert){
     bgRender(); renderPerf();
     try {
       const s = JSON.parse(localStorage.getItem(RKEY) || "null");
-      if (s && s.at > lastScan && !watches.size && !busy){ restoreResults(); toast("Showing the latest background scan"); }
+      if (s && s.at > lastScan && !watches.size && !busy){ restoreResults(); toast("Showing the latest background scan (" + hhmm(s.at) + ")"); }
     } catch(e){}
+    if (fromAlert){ const r = $("results"); if (r) setTimeout(() => r.scrollIntoView({ block: "start" }), 300); }
   } };
   if (!BG) restoreResults();
   renderDock();

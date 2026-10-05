@@ -7,6 +7,8 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.webkit.JavascriptInterface;
@@ -28,10 +30,13 @@ import java.util.concurrent.Executors;
  * - bgDone: end of a background scan (only used by the service)
  */
 class NativeBridge {
-    interface Listener { void onScanDone(String json); }
+    interface Listener { void onScanDone(String json); void onProgress(String msg); }
 
     private static final String[] HOSTS = { "contract.mexc.com", "fapi.binance.com", "api.bybit.com" };
     private static final ExecutorService NET = Executors.newFixedThreadPool(4);
+    // Main-thread handler. web.post() would never run for the background WebView: it is not attached
+    // to a window, so Android parks posted work until it is attached (this caused the scan time-outs).
+    private static final Handler MAIN = new Handler(Looper.getMainLooper());
 
     private final Context ctx;
     private final WebView web;
@@ -75,7 +80,7 @@ class NativeBridge {
                 if (con != null) con.disconnect();
             }
             final String js = "window.MWNet&&MWNet.done(" + JSONObject.quote(id) + "," + code + "," + JSONObject.quote(body) + ")";
-            web.post(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) {} });
+            MAIN.post(() -> { try { web.evaluateJavascript(js, null); } catch (Exception ignored) {} });
         });
     }
 
@@ -136,6 +141,11 @@ class NativeBridge {
                 activity.startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
             }
         });
+    }
+
+    @JavascriptInterface
+    public void bgProgress(String msg) {
+        if (listener != null) listener.onProgress(msg);
     }
 
     @JavascriptInterface

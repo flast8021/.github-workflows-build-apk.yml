@@ -59,3 +59,13 @@ Play Store distribution.
 **After installing:** allow notifications when asked, then tap **Battery settings** in the card and set Manner Wein to Unrestricted / Don't optimise. Samsung/Xiaomi phones may also need the app removed from "sleeping apps".
 
 New files: `ScanService.java`, `NativeBridge.java`, `AppWebClient.java`, `Prefs.java`, `BootReceiver.java`, `res/drawable/ic_stat.xml`.
+
+### Version 3.0: background scanner fixes
+
+- **Fixed "Last scan timed out"**: exchange replies were posted to the hidden WebView with `web.post()`, which Android never runs for a WebView that is not on screen. Replies now go through the main-thread handler, so scans complete.
+- **Watchdog instead of a blind 4-minute timer**: the page reports progress ("Scanning 12/40"); a scan is only stopped if no data arrives for 90 s. If the page is not ready it is reloaded and retried within seconds.
+- **Pop-up alerts**: new high-importance "Ready setups" channel with sound and vibration. Brief pop-up shows "SOL LONG Ready · Grade A"; detailed/expanded view shows entry, SL, TP, R:R, setup type and expiry. Several setups are grouped with a summary.
+- **No setup = no alert.** The status notification Android requires is now silent and minimised.
+- **Tap an alert** to open the app on that scan's results (same entry/SL/TP as the alert).
+- **Scanner performance** keeps re-checking waiting and open trades after every scan until expiry, stop or target (no 24h cut-off; 1H candles fill gaps if the phone was off). New "Being tracked" list shows each with its plan and current R.
+

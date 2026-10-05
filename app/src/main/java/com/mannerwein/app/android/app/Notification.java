@@ -1,0 +1,8 @@
+package android.app; public class Notification{ public static final String CATEGORY_RECOMMENDATION="",CATEGORY_EVENT=""; public static final int VISIBILITY_PUBLIC=1,PRIORITY_HIGH=1,DEFAULT_ALL=-1;
+public static class Builder{ public Builder(android.content.Context c,String ch){} public Builder setSmallIcon(int i){return this;} public Builder setContentTitle(CharSequence s){return this;}
+public Builder setContentText(CharSequence s){return this;} public Builder setStyle(Style s){return this;} public Builder setOngoing(boolean b){return this;} public Builder setOnlyAlertOnce(boolean b){return this;}
+public Builder setContentIntent(PendingIntent p){return this;} public Builder addAction(Action a){return this;} public Builder setAutoCancel(boolean b){return this;} public Builder setCategory(String c){return this;}
+public Builder setShowWhen(boolean b){return this;} public Builder setWhen(long w){return this;} public Builder setTicker(CharSequence t){return this;} public Builder setVisibility(int v){return this;}
+@Deprecated public Builder setPriority(int p){return this;} @Deprecated public Builder setDefaults(int d){return this;} public Builder setGroup(String g){return this;} public Builder setGroupSummary(boolean b){return this;} public Notification build(){return null;} }
+public static abstract class Style{} public static class BigTextStyle extends Style{ public BigTextStyle bigText(CharSequence s){return this;} public BigTextStyle setBigContentTitle(CharSequence s){return this;} }
+public static class Action{ public static class Builder{ public Builder(android.graphics.drawable.Icon i, CharSequence t, PendingIntent p){} public Action build(){return null;} } } }

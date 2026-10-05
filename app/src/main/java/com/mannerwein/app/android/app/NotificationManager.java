@@ -1,0 +1,1 @@
+package android.app; public class NotificationManager{ public static final int IMPORTANCE_MIN=1,IMPORTANCE_LOW=2,IMPORTANCE_HIGH=4; public void createNotificationChannel(NotificationChannel c){} public void deleteNotificationChannel(String id){} public void notify(int id, Notification n){} }

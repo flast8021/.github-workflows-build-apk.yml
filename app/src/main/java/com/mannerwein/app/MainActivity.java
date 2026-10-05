@@ -68,10 +68,19 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+    }
+
+    @Override
     protected void onResume() {
         super.onResume();
-        // Show the latest background results and Scanner performance when the app comes back
-        if (web != null) web.evaluateJavascript("window.MW&&MW.app&&MW.app.resume()", null);
+        // Show the latest background results and Scanner performance when the app comes back.
+        // Opened from a Ready alert: also jump to the results.
+        boolean fromAlert = getIntent() != null && getIntent().getBooleanExtra(ScanService.EXTRA_ALERT, false);
+        if (fromAlert) getIntent().removeExtra(ScanService.EXTRA_ALERT);
+        if (web != null) web.evaluateJavascript("window.MW&&MW.app&&MW.app.resume(" + fromAlert + ")", null);
     }
 
     @Override
