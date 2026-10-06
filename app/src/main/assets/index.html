@@ -410,7 +410,7 @@
   .gpill.gC{color:var(--muted)}
   .ttag{font-size:12px; color:var(--muted)}
   .pill.ready{color:var(--green); border-color:rgba(34,197,94,0.6)}
-  .pill.swept{color:var(--amber); border-color:rgba(245,158,11,0.6)}
+  .pill.swept, .pill.displaced, .pill.retest{color:var(--amber); border-color:rgba(245,158,11,0.6)}
   .pill.dead{color:var(--muted); border-style:dashed}
   .sc-card.dead{opacity:.62; border-style:dashed}
   .why{font-size:14px; line-height:1.5}
@@ -434,7 +434,24 @@
   .perfgrid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
   #perfCard .box{background:rgba(0,0,0,0.25); border:1px solid var(--border); border-radius:10px; padding:9px 10px}
   #perfCard .k{font-size:12px; color:var(--muted)} #perfCard .v{font-size:16px; font-weight:700; margin-top:3px}
-  .ptab{margin-top:10px; max-height:none} .ptab tr.gh td{color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; padding-top:10px}
+  .ptab{margin-top:10px; max-height:none}
+  .pfilters{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px}
+  .pchip{padding:6px 12px; border-radius:999px; border:1px solid var(--border); background:rgba(0,0,0,0.25); color:var(--text); font-size:13px; cursor:pointer}
+  .pchip.on{background:linear-gradient(90deg,var(--royal),var(--blue)); border-color:transparent; color:#fff}
+  .pcustom{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:8px} .pcustom label{display:flex; gap:6px; align-items:center; margin:0}
+  .pcustom input{width:auto}
+  .stag{font-size:11px; font-weight:700; padding:1px 8px; border-radius:999px; border:1px solid var(--border); margin-right:4px}
+  .stag.early{color:var(--amber); border-color:rgba(245,158,11,0.6)} .stag.dev{color:#8fd3ff} .stag.est{color:var(--green)}
+  #perfBody .ptab td{white-space:normal; vertical-align:top}
+  .sigrow{cursor:pointer}
+  .auditsvg{width:100%; height:220px; background:rgba(0,0,0,0.25); border-radius:10px; margin:8px 0 4px}
+  .auditbtn{margin-top:8px} .auditbox[hidden]{display:none} .audit td{white-space:normal; vertical-align:top}
+  .vlist{margin:6px 0 0; padding-left:18px; font-size:13px; line-height:1.6}
+  tr.curv td{background:rgba(26,155,240,0.08)}
+  .rt{font-weight:700} .sigrow:hover td{background:rgba(26,155,240,0.06)}
+  .sigdtl td{white-space:normal} .sigdtl .dtl{border-top:none; margin-top:0}
+  .autolist{margin-top:8px; display:grid; gap:6px} .autorow{display:flex; justify-content:space-between; align-items:center; gap:8px; font-size:13px}
+  .autolist[hidden], #runBody[hidden], .sigdtl[hidden]{display:none} .ptab tr.gh td{color:var(--muted); font-size:11px; text-transform:uppercase; letter-spacing:1px; padding-top:10px}
   @media (max-width:700px){ .perfgrid{grid-template-columns:1fr 1fr} .prow{grid-template-columns:66px minmax(0,1fr)} .why{font-size:13.5px} }
   .msg a{color:#8fd3ff}
   .lblx{font-size:11px; opacity:.75}
@@ -746,21 +763,38 @@ select option{background:#171034 !important}
       <div class="box"><div class="k">Session</div><div class="v" id="mSess">-</div></div>
       <div class="box"><div class="k">Last scan</div><div class="v" id="mTime">-</div></div>
     </div>
+    <div class="k" id="mReg" style="margin-top:8px;font-size:12.5px;line-height:1.5"></div>
   </div>
 
   <div class="card">
     <h2>Setups <button type="button" class="ibtn" data-info="infoScan" aria-label="More info" title="More info" aria-expanded="false">i</button></h2>
-    <p class="note info-pop" id="infoScan"><b>How coins are chosen:</b> volume and spread filter, then "in play" (volume at least 1.2x normal and volatility not shrinking), then price must be at a level. Levels are 1H and 4H swings, previous day and week highs and lows, daily and weekly opens, and equal highs and lows.<br>
-      <b>Setup types:</b> With-trend (1H trend your way), Range edge (1H ranging, price at the edge) and Reversal (a strong level swept against the 1H trend, needs R:R 2 or more). The 4H only adjusts the grade, except when the 4H and BTC are both strongly against you.<br>
-      <b>Status</b> says when to act: At level, then Swept, then Ready (sweep plus a 15m or 5m close through the last swing). <b>Grade</b> says how good it is: level strength, trend fit, BTC, R:R after your calculator fees, volume, open interest and funding, strength vs BTC, session and sweep volume.<br>
-      Entry is a limit on the retest, not the current price. Size uses your balance and max risk from the calculator. Always confirm on your own chart.</p>
+    <p class="note info-pop" id="infoScan"><b>How coins are chosen:</b> volume and spread filter, then "in play" (volume at least 1.2x normal and volatility not shrinking), then price must be near a level (1H/4H swings, previous day and week highs and lows, daily and weekly opens, equal highs and lows).<br>
+      <b>Steps to Ready:</b> Approaching &rarr; At level &rarr; Swept (wick past the level, back within 1–2 candles, not a breakout) &rarr; Broke structure (a strong or acceptable close through the last swing) &rarr; Retesting (pullback into the break point, the last opposite candle or the level) &rarr; <b>Ready</b> only when a 5m/15m candle closes back from that zone with a rejection. Entry is that close.<br>
+      <b>Playbooks:</b> Dual (15m and 5m both broke structure), Standard 15m, and Fast 5m (needs a solid level, a clean sweep and a strong break; half risk). Reversals need a strong level, a clean sweep, a strong 15m break and R:R 2+, at half risk. Range setups must be at the 1H range edge and target the range midpoint first.<br>
+      <b>Stop:</b> beyond the lowest of the sweep extreme, retest low, level zone (and range edge) plus 0.5 x 15m ATR, never closer than 1 x 15m ATR. Size shrinks so the account risk stays the same. Four other stop distances are tracked in Scanner performance for comparison.<br>
+      <b>Targets:</b> T1 nearest obstacle, T2 first meaningful level (the target used), T3 major liquidity beyond. A setup is rejected if a strong level blocks the path, the target needs more than 1.2x the coin's average daily range, or the R:R after fees is below your minimum. 2R is only used when nothing is in the way.<br>
+      <b>Ratings:</b> Market, Level, Trigger and Trade plan are each scored out of 100. Ready needs all four at 50+, and the <b>grade comes from the weakest one</b> (A 70+, B 55+, C below), so one weak part cannot hide behind strong ones. Market regime (BTC trend, volatility, alt strength, funding) is recorded with every signal. Always confirm on your own chart.</p>
     <div class="results" id="results"><div class="empty">Run a scan to see the best setups.</div></div>
   </div>
   <div class="card" id="perfCard">
     <h2>Scanner performance <button type="button" class="ibtn" data-info="infoPerf" aria-label="More info" title="More info" aria-expanded="false">i</button></h2>
-    <p class="note info-pop" id="infoPerf">Every Ready setup the scanner shows (including ones that turn Ready on live watch) is logged in this browser. The scanner then replays 15m candles: did price come back to the entry before it expired, then did it hit the stop or the target first? If both happen in the same candle it counts as a loss. Entry, SL and TP stay exactly as they were when the signal fired. Waiting and open trades are re-checked after every scan (every 5 minutes with the background scanner) until the entry expires or the stop or target is hit, and are listed under Being tracked. Use them to see which grades, setup types and levels actually work for you.</p>
+    <p class="note info-pop" id="infoPerf">Every Ready signal is saved permanently in a database on this phone, with its full plan (entry, stop, target, level, ATR, trend, BTC, session, grade) frozen at the moment it fired. Nothing is deleted automatically.
+      After each scan, waiting and open signals are replayed on the closed candles since the last check (5m where available, then 15m, then 1H): waiting until filled, missed or expired, then open until the stop or target.
+      If the stop and target fall in the same candle the result is <b>Ambiguous</b> and shown as a range, not counted as a win or a loss. Signals the exchange no longer has candles for are <b>Unresolved</b>.
+      After a stop, the price is followed for 24 hours more to see whether the target was reached anyway. A backup is saved inside the app once a day; use <b>Back up</b> to keep a copy elsewhere.</p>
     <div id="perfBody"></div>
-    <div class="btns" style="margin-top:10px"><button type="button" class="btn" id="btnPerfUpd">Update results</button><button type="button" class="btn" id="btnPerfClr">Clear history</button></div>
+    <div class="btns" style="margin-top:10px">
+      <button type="button" class="btn primary" id="btnPerfUpd">Update results</button>
+      <button type="button" class="btn" id="btnPerfCsv">Export CSV</button>
+      <button type="button" class="btn" id="btnPerfBackup">Back up</button>
+      <button type="button" class="btn" id="btnPerfRestore">Restore from file</button>
+      <button type="button" class="btn" id="btnPerfAuto">Automatic backups</button>
+      <button type="button" class="btn" id="btnPerfArch">Archive / un-archive period</button>
+      <button type="button" class="btn" id="btnPerfDel">Delete period</button>
+    </div>
+    <div class="autolist" id="autoList" hidden></div>
+    <div class="btns" style="margin-top:10px"><button type="button" class="btn" id="runToggle">Show scan log</button></div>
+    <div id="runBody" hidden></div>
   </div>
 </section>
 
@@ -966,16 +1000,22 @@ select option{background:#171034 !important}
                    hintShort:"Against the 1H trend only counts after a sweep of a strong level and with at least 2R. The 4H is context." },
     { id:"level",  long:"Is price at a key SUPPORT? (swing low, previous day/week low, open, or equal lows)",
                    short:"Is price at a key RESISTANCE? (swing high, previous day/week high, open, or equal highs)" },
-    { id:"sweep",  long:"Did price dip below support, then close back above it?",
-                   short:"Did price spike above resistance, then close back below it?",
-                   hintLong:"A quick fake-out below support, then a candle closes back above it.",
-                   hintShort:"A quick fake-out above resistance, then a candle closes back below it." },
-    { id:"bos",    long:"Did a 5m / 15m candle CLOSE above the last swing high?",
-                   short:"Did a 5m / 15m candle CLOSE below the last swing low?",
-                   hintLong:"A wick above does not count. It must be a candle close.",
-                   hintShort:"A wick below does not count. It must be a candle close." },
-    { id:"stop",   long:"Is your stop loss just below the dip (sweep low)?",
-                   short:"Is your stop loss just above the spike (sweep high)?" },
+    { id:"sweep",  long:"Did price dip below support and close back above it quickly (within 1–2 candles)?",
+                   short:"Did price spike above resistance and close back below it quickly (within 1–2 candles)?",
+                   hintLong:"Not a sweep if price stayed below for 3+ closes or ran far below: that is a breakdown.",
+                   hintShort:"Not a sweep if price stayed above for 3+ closes or ran far above: that is a breakout." },
+    { id:"bos",    long:"Did a 5m / 15m candle close STRONGLY above the last swing high?",
+                   short:"Did a 5m / 15m candle close STRONGLY below the last swing low?",
+                   hintLong:"Big body, clearly beyond the swing. A wick or a small poke does not count.",
+                   hintShort:"Big body, clearly beyond the swing. A wick or a small poke does not count." },
+    { id:"retest", long:"Did price pull back to the break or the level, hold, and a candle close back up?",
+                   short:"Did price pull back to the break or the level, hold, and a candle close back down?",
+                   hintLong:"No retest = no entry. Enter on the confirming close, not on the first break.",
+                   hintShort:"No retest = no entry. Enter on the confirming close, not on the first break." },
+    { id:"stop",   long:"Is your stop below the lowest of the sweep low, retest low and level zone, plus a buffer?",
+                   short:"Is your stop above the highest of the sweep high, retest high and level zone, plus a buffer?",
+                   hintLong:"Use at least 1 x 15m ATR from entry. Wider stop = smaller position, same risk.",
+                   hintShort:"Use at least 1 x 15m ATR from entry. Wider stop = smaller position, same risk." },
     { id:"rr",     long:"Is your upside target at least {rr}x your risk?",
                    short:"Is your downside target at least {rr}x your risk?",
                    hintLong:"Answered automatically when the calculator is filled in.",
@@ -993,7 +1033,7 @@ select option{background:#171034 !important}
     { id:"calm",   long:"Are you calm (not chasing a pump or revenge trading)?",
                    short:"Are you calm (not chasing a dump or revenge trading)?" }
   ];
-  const MUST_PTS = 10, BONUS_PTS = 8;
+  const MUST_PTS = 10, BONUS_PTS = 6;   // 7 must-pass x 10 + 5 bonus x 6 = 100
 
   const state = { dir:"long", answers:{}, rrAuto:null, rrReason:"", calc:null, sugg:null, suggMeta:null, calcErr:"" };
   const escH = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
@@ -2019,9 +2059,10 @@ select option{background:#171034 !important}
           sym: t.symbol, base: t.symbol.replace(/_USDT$/, ""), last: +t.lastPrice, vol: +t.amount24,
           chg: +t.riseFallRate * 100, funding: +t.fundingRate, bid: +t.bid1, ask: +t.ask1 }));
       },
-      async klines(sym, tf){
+      async klines(sym, tf, n){
+        const N = n || TF[tf].n;
         const base = "https://contract.mexc.com/api/v1/contract/kline/" + sym + "?interval=" + TF[tf].mexc;
-        const start = Math.floor(Date.now() / 1000) - TF[tf].n * TF[tf].sec;
+        const start = Math.floor(Date.now() / 1000) - N * TF[tf].sec;
         const parse = j => {
           if (j && j.success === false) throw new Error("MEXC: " + (j.message || j.msg || ("code " + j.code)));
           const d = j && j.data;
@@ -2037,7 +2078,7 @@ select option{background:#171034 !important}
         try { out = parse(await getJSON(base + "&start=" + start)); } catch(e){ if (/^MEXC:/.test(e.message)) throw e; }
         if (!out){ await sleep(250); out = parse(await getJSON(base)); }
         if (!out) throw new Error("MEXC returned no candles for " + sym + " (" + TF[tf].mexc + ")");
-        return out.slice(-TF[tf].n);
+        return out.slice(-N);
       },
       oiSrc: "Binance",
       async oi(sym){ return EX.binance.oi(sym.replace(/_USDT$/, "USDT")); },   // MEXC has no public OI history
@@ -2068,8 +2109,8 @@ select option{background:#171034 !important}
           chg: +t.priceChangePercent, funding: fr[t.symbol] || 0,
           bid: bk[t.symbol] ? +bk[t.symbol].bidPrice : 0, ask: bk[t.symbol] ? +bk[t.symbol].askPrice : 0 }));
       },
-      async klines(sym, tf){
-        const j = await getJSON("https://fapi.binance.com/fapi/v1/klines?symbol=" + sym + "&interval=" + TF[tf].binance + "&limit=" + TF[tf].n);
+      async klines(sym, tf, n){
+        const j = await getJSON("https://fapi.binance.com/fapi/v1/klines?symbol=" + sym + "&interval=" + TF[tf].binance + "&limit=" + (n || TF[tf].n));
         return j.map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
       },
       async oi(sym){
@@ -2093,8 +2134,8 @@ select option{background:#171034 !important}
           sym: t.symbol, base: t.symbol.replace(/USDT$/, ""), last: +t.lastPrice, vol: +t.turnover24h,
           chg: +t.price24hPcnt * 100, funding: +t.fundingRate, bid: +t.bid1Price, ask: +t.ask1Price }));
       },
-      async klines(sym, tf){
-        const j = await getJSON("https://api.bybit.com/v5/market/kline?category=linear&symbol=" + sym + "&interval=" + TF[tf].bybit + "&limit=" + TF[tf].n);
+      async klines(sym, tf, n){
+        const j = await getJSON("https://api.bybit.com/v5/market/kline?category=linear&symbol=" + sym + "&interval=" + TF[tf].bybit + "&limit=" + Math.min(1000, n || TF[tf].n));
         const list = j && j.result && j.result.list;
         if (!Array.isArray(list)) throw new Error("No candles");
         return list.slice().reverse().map(k => ({ t: +k[0], o: +k[1], h: +k[2], l: +k[3], c: +k[4], v: +k[5] }));
@@ -2233,7 +2274,8 @@ select option{background:#171034 !important}
       const touchS = touches === 0 ? 2 : touches === 1 ? 3 : touches <= 3 ? 5 : touches <= 5 ? 3 : 1;
       const reactS = react === null ? 2 : react >= 2 ? 5 : react >= 1 ? 3 : 1;
       const names = srcs.filter((s, i) => !(s === "S1" && srcs.includes("S4"))).map(s => LT[s].n);
-      return { p, srcs, primary: srcs[0], label: names.join(" + "), touches, react, strength: typeS + touchS + reactS };
+      const zlo = Math.min(...g.items.map(x => x.p)), zhi = Math.max(...g.items.map(x => x.p));
+      return { p, srcs, primary: srcs[0], label: names.join(" + "), touches, react, strength: typeS + touchS + reactS, zlo, zhi };
     });
   }
   const strWord = s => s >= 14 ? "strong" : s >= 10 ? "solid" : "weak";
@@ -2258,29 +2300,6 @@ select option{background:#171034 !important}
     if (h < 20) return { n: "New York", pts: 3 };
     return { n: "Late US", pts: 1 };
   }
-  // Sweep of level L, then break of structure, on one timeframe
-  function trigger(c, n, L, d, a, tfSec){
-    const len = c.length;
-    let sIdx = -1;
-    for (let i = Math.max(0, len - n); i < len; i++){
-      const b = c[i];
-      if (!(d === 1 ? (b.l < L && b.c > L) : (b.h > L && b.c < L))) continue;
-      const fail = c.slice(i + 1).findIndex(k => d === 1 ? k.c < L - 0.25 * a : k.c > L + 0.25 * a);
-      if (fail >= 0){ i = i + 1 + fail; continue; }
-      sIdx = i; break;
-    }
-    if (sIdx < 0) return null;
-    const pv = pivots(c.slice(0, sIdx + 1), 2);
-    const sws = (d === 1 ? pv.H : pv.L).filter(x => x.i < sIdx && x.i >= sIdx - 24 && (d === 1 ? x.p > L : x.p < L));
-    const win = c.slice(Math.max(0, sIdx - 8), sIdx);
-    let swing = sws.length ? sws[sws.length - 1].p : win.length ? (d === 1 ? Math.max(...win.map(b => b.h)) : Math.min(...win.map(b => b.l))) : (d === 1 ? c[sIdx].h : c[sIdx].l);
-    if (d === 1 ? swing <= L : swing >= L) swing = d === 1 ? c[sIdx].h : c[sIdx].l;
-    let bosIdx = -1;
-    for (let j = sIdx; j < len; j++) if (d === 1 ? c[j].c > swing : c[j].c < swing){ bosIdx = j; break; }
-    const prev = c.slice(Math.max(0, sIdx - 20), sIdx);
-    const avg = prev.reduce((s, b) => s + b.v, 0) / Math.max(1, prev.length);
-    return { c, sIdx, swing, bosIdx, sweepT: c[sIdx].t, bosT: bosIdx >= 0 ? c[bosIdx].t + tfSec * 1000 : null, volX: avg > 0 ? c[sIdx].v / avg : null };
-  }
   function buildCtx(tk, data, btc, now, exKey){
     const c4 = closedOnly(data.c4, "4h", now), c1 = closedOnly(data.c1, "1h", now), c15 = closedOnly(data.c15, "15m", now), c5 = closedOnly(data.c5, "5m", now);
     if (c4.length < 40 || c1.length < 100 || c15.length < 40 || c5.length < 30) return null;
@@ -2289,10 +2308,15 @@ select option{background:#171034 !important}
     const tr4 = structure(c4, 3), e21 = ema(c4.map(b => b.c), 21);
     const r48 = c1.slice(-48), rHi = Math.max(...r48.map(b => b.h)), rLo = Math.min(...r48.map(b => b.l));
     const coinChg = (price / c1[c1.length - 24].c - 1) * 100;
-    return { ex: exKey, sym: tk.sym, base: tk.base, price, a1, a4, c4, c1, c15, c5, now,
+    // 5-day average daily range (UTC days) and today's range so far, for target room checks
+    const day0 = Math.floor(now / DAY) * DAY, rngs = [];
+    for (let k = 1; k <= 5; k++){ const seg = c1.filter(b => b.t >= day0 - k * DAY && b.t < day0 - (k - 1) * DAY); if (seg.length >= 20) rngs.push(Math.max(...seg.map(b => b.h)) - Math.min(...seg.map(b => b.l))); }
+    const adr = rngs.length ? rngs.reduce((p, q) => p + q, 0) / rngs.length : 0;
+    const td = c1.filter(b => b.t >= day0), todayRange = td.length ? Math.max(price, ...td.map(b => b.h)) - Math.min(price, ...td.map(b => b.l)) : 0;
+    return { ex: exKey, sym: tk.sym, base: tk.base, price, a1, a4, a15: atr(c15, 14), a5: atr(c5, 14), rLo, rHi, c4, c1, c15, c5, now,
              bias1: structure(c1.slice(-120), 2), tr4, strong4: tr4 !== 0 && (c4[c4.length - 1].c - e21) * tr4 >= a4,
              lv: buildLevels(c1, c4, a1, now), rPos: (price - rLo) / ((rHi - rLo) || 1), coinChg, rs: coinChg - btc.chg,
-             ip: inPlayOf(c1), btc, funding: tk.funding || 0, vol: tk.vol, sess: sessionOf(now) };
+             ip: inPlayOf(c1), btc, funding: tk.funding || 0, vol: tk.vol, sess: sessionOf(now), adr, todayRange };
   }
   // All setups worth considering on this coin (passing or not, each with its reasons)
   function evaluate(x, dirs, u){
@@ -2308,88 +2332,318 @@ select option{background:#171034 !important}
     const ds = x.lv.map(l => Math.abs(l.p - x.price) / x.a1).sort((a, b) => a - b);
     return "No level within reach" + (ds.length ? " (nearest " + ds[0].toFixed(1) + " ATR away)" : "");
   }
-  function setupAt(x, d, L, u){
-    const a = x.a1, now = x.now, up = d === 1, Lp = L.p, dist = Math.abs(x.price - Lp) / a;
-    const t15 = trigger(x.c15, 16, Lp, d, a, 900), t5 = trigger(x.c5, 24, Lp, d, a, 300);
-    let T = null, tf = null;
-    if (t15 && t15.bosIdx >= 0){ T = t15; tf = "15m"; } else if (t5 && t5.bosIdx >= 0){ T = t5; tf = "5m"; }
-    else if (t15){ T = t15; tf = "15m"; } else if (t5){ T = t5; tf = "5m"; }
-    const status = !T ? "at" : T.bosIdx >= 0 ? "ready" : "swept";
-    const type = x.bias1 === d ? "trend" : x.bias1 === 0 ? "range" : "reversal";
-    let X, ext = null, exp, entry, sl;
-    if (T){
-      const seg = T.c.slice(T.sIdx, T.bosIdx >= 0 ? T.bosIdx + 1 : T.c.length);
-      ext = up ? Math.min(...seg.map(b => b.l)) : Math.max(...seg.map(b => b.h));
-      X = T.swing;
+  // ================= v4.1 TRIGGER ENGINE =================
+  // Sweep -> displacement (break of structure) -> retest -> confirmation, each measured and graded.
+  // aT = ATR of the trigger timeframe, a1 = 1H ATR (used for the "sweep failed" rule, as before).
+  const SW_WORD = { clean: "clean", acceptable: "acceptable", weak: "weak", failed: "failed" };
+  function sweepEvent(c, n, L, d, aT, a1){
+    const len = c.length, up = d === 1;
+    const past = k => up ? k.l < L : k.h > L;
+    const back = k => up ? k.c > L : k.c < L;
+    for (let i = Math.max(0, len - n); i < len; i++){
+      if (!past(c[i])) continue;
+      let r = i; while (r < len && !back(c[r])) r++;
+      if (r >= len){                                                   // still beyond the level: breakout, not a sweep (yet)
+        return { i, r: -1, failed: "Price is holding beyond the level (" + (len - i) + " candle" + (len - i === 1 ? "" : "s") + "), not a sweep" };
+      }
+      const seg = c.slice(i, r + 1);
+      const ext = up ? Math.min(...seg.map(b => b.l)) : Math.max(...seg.map(b => b.h));
+      // Sweep failed later: a close well beyond the level, or beyond the sweep extreme
+      const fail = c.slice(r + 1).findIndex(k => up ? (k.c < L - 0.25 * a1 || k.c < ext) : (k.c > L + 0.25 * a1 || k.c > ext));
+      if (fail >= 0){ i = r + fail; continue; }                     // re-check from the failing candle
+      const k = c[r], rng = k.h - k.l;
+      const rej = rng > 0 ? (up ? k.c - k.l : k.h - k.c) / rng : 0;        // where the reclaim candle closed in its range
+      const depth = (up ? L - ext : ext - L);
+      const beyond = r - i;                                            // closes beyond the level before the reclaim
+      const prev = c.slice(Math.max(0, i - 20), i);
+      const avgV = prev.reduce((s, b) => s + b.v, 0) / Math.max(1, prev.length);
+      const volX = avgV > 0 ? Math.max(...seg.map(b => b.v)) / avgV : null;
+      const clear = (up ? k.c - L : L - k.c) / aT;
+      const out = { i, r, ext, depth, depthT: depth / aT, rej, beyond, volX, clear, sweepT: c[i].t, reclaimT: c[r].t };
+      if (out.depthT > 2) { out.cls = "breakout"; out.grade = "failed"; out.failed = "Moved " + out.depthT.toFixed(1) + " ATR past the level: a breakout, not a sweep"; return out; }
+      if (beyond >= 3)    { out.cls = "acceptance"; out.grade = "failed"; out.failed = "Price accepted beyond the level (" + beyond + " closes) before coming back"; return out; }
+      out.cls = beyond === 0 ? "quick" : "slow reclaim";
+      let q = 0;
+      q += rej >= 0.6 ? 1 : rej >= 0.45 ? 0.5 : 0;
+      q += beyond === 0 ? 1 : 0.5;
+      q += out.depthT >= 0.1 && out.depthT <= 1.2 ? 1 : out.depthT < 0.1 ? 0 : 0.5;
+      q += volX !== null && volX >= 1.5 ? 1 : volX !== null && volX >= 1.1 ? 0.5 : 0;
+      q += clear >= 0.1 ? 1 : 0;
+      out.q = q;
+      out.grade = q >= 4 ? "clean" : q >= 2.5 ? "acceptable" : "weak";
+      return out;
+    }
+    return null;
+  }
+  // Break of structure after the sweep, and how convincing it was
+  function bosOf(c, S, L, d, aT, tfSec){
+    const up = d === 1, i = S.i;
+    // Swing to break: most recent pivot before the sweep that was not already broken
+    const pv = pivots(c.slice(0, i + 1), 2);
+    const cand = (up ? pv.H : pv.L).filter(x => x.i < i && x.i >= i - 24 && (up ? x.p > L : x.p < L))
+      .filter(x => !c.slice(x.i + 1, i).some(k => up ? k.c > x.p : k.c < x.p));
+    let swing, real = false, prom = 0, pIdx = -1;
+    if (cand.length){
+      const x = cand[cand.length - 1]; swing = x.p; real = true; pIdx = x.i;
+      const between = c.slice(x.i + 1, i + 1);
+      prom = between.length ? (up ? x.p - Math.min(...between.map(b => b.l)) : Math.max(...between.map(b => b.h)) - x.p) / aT : 0;
     } else {
+      const win = c.slice(Math.max(0, i - 8), i);
+      swing = win.length ? (up ? Math.max(...win.map(b => b.h)) : Math.min(...win.map(b => b.l))) : (up ? c[S.r].h : c[S.r].l);
+      if (up ? swing <= L : swing >= L) swing = up ? c[S.r].h : c[S.r].l;
+    }
+    const out = { swing, real, prom, pIdx, distL: Math.abs(swing - L) / aT, idx: -1, cls: "none" };
+    for (let j = S.r; j < c.length; j++){
+      const k = c[j];
+      if (up ? k.c > swing : k.c < swing){ out.idx = j; break; }
+      if (up ? k.h > swing : k.l < swing) out.cls = "wick";
+    }
+    if (out.idx < 0) return out;
+    const k = c[out.idx], rng = k.h - k.l, body = Math.abs(k.c - k.o);
+    const prev = c.slice(Math.max(0, out.idx - 10), out.idx);
+    const avgB = prev.reduce((s, b) => s + Math.abs(b.c - b.o), 0) / Math.max(1, prev.length);
+    const avgV = prev.reduce((s, b) => s + b.v, 0) / Math.max(1, prev.length);
+    out.bodyR = rng > 0 ? body / rng : 0;
+    out.bodyX = avgB > 0 ? body / avgB : 0;
+    out.beyond = (up ? k.c - swing : swing - k.c) / aT;
+    out.volB = avgV > 0 ? k.v / avgV : 0;
+    out.speed = out.idx - S.i;
+    out.dirOk = up ? k.c > k.o : k.c < k.o;
+    out.t = k.t + tfSec * 1000;
+    let s = 0;
+    if (out.bodyR >= 0.55) s++;
+    if (out.bodyX >= 1.3) s++;
+    if (out.beyond >= 0.1) s++;
+    if (out.volB >= 1.1) s++;
+    if (real && prom >= 0.5) s++;
+    if (out.speed <= 6) s++;
+    out.score = s;
+    out.cls = s >= 5 && out.dirOk ? "strong" : s >= 3 && out.dirOk && out.beyond >= 0.05 && real && out.distL >= 0.2 ? "acceptable" : "weak";
+    return out;
+  }
+  // Where a pullback should hold after the break, from shallow to deep
+  function zonesOf(x, c, S, B, L, d, a15){
+    const up = d === 1, Z = [];
+    Z.push({ k: "bp", n: "Break-point retest", lo: up ? B.swing - 0.3 * a15 : B.swing - 0.1 * a15, hi: up ? B.swing + 0.1 * a15 : B.swing + 0.3 * a15 });
+    for (let j = B.idx - 1; j >= S.r; j--){                            // last opposite candle before the break
+      const k = c[j];
+      if (up ? k.c < k.o : k.c > k.o){ Z.push({ k: "disp", n: "Displacement-zone retest", lo: Math.min(k.o, k.c), hi: Math.max(k.o, k.c) }); break; }
+    }
+    const zlo = Math.min(L.zlo, L.p), zhi = Math.max(L.zhi, L.p);
+    Z.push({ k: "lvl", n: "Level retest", lo: up ? zlo - 0.15 * a15 : zlo - 0.25 * a15, hi: up ? zhi + 0.25 * a15 : zhi + 0.15 * a15 });
+    Z.forEach(z => { if (z.hi < z.lo){ const t = z.hi; z.hi = z.lo; z.lo = t; } z.mid = (z.lo + z.hi) / 2; });
+    return Z.sort((p, q) => up ? q.hi - p.hi : p.lo - q.lo);         // shallow first
+  }
+  // Retest after the break: touch a zone, do not close through it, then a candle closes back with rejection
+  function retestOf(cr, tfr, fromT, Z, d, aR, ext, maxMs, now){
+    const up = d === 1, cs = cr.filter(k => k.t >= fromT), deep = Z[Z.length - 1];
+    let touch = null, touchI = -1, low = null;
+    for (let j = 0; j < cs.length; j++){
+      const k = cs[j];
+      if (k.t >= fromT + maxMs) return { state: "timeout", touch, low };
+      if (up ? k.c < ext : k.c > ext) return { state: "failed", why: "closed beyond the sweep extreme", touch, low };
+      if (up ? k.c < deep.lo - 0.25 * aR : k.c > deep.hi + 0.25 * aR) return { state: "failed", why: "closed through the retest zone", touch, low };
+      const hit = Z.filter(z => up ? k.l <= z.hi : k.h >= z.lo);
+      if (hit.length){
+        const z = hit[hit.length - 1];
+        if (!touch || Z.indexOf(z) > Z.indexOf(touch)) touch = z;
+        if (touchI < 0) touchI = j;
+      }
+      if (touch) low = low === null ? (up ? k.l : k.h) : up ? Math.min(low, k.l) : Math.max(low, k.h);
+      if (touch && j - touchI <= 3){
+        const rng = k.h - k.l, rej = rng > 0 ? (up ? k.c - k.l : k.h - k.c) / rng : 0;
+        if ((up ? k.c > k.o : k.c < k.o) && rej >= 0.5 && (up ? k.c >= touch.mid : k.c <= touch.mid))
+          return { state: "confirmed", zone: touch, conf: k, confT: k.t + TF[tfr].sec * 1000, entry: k.c, low, tf: tfr, rej };
+      }
+      if (touch && j - touchI > 3){ touch = null; touchI = -1; }       // no confirmation in time: wait for the next touch
+    }
+    if (cs.length && now >= fromT + maxMs) return { state: "timeout", touch, low };
+    return { state: touch ? "retest" : "waiting", touch, low };
+  }
+  // Full read of one timeframe for one level
+  function readTf(x, c, tf, n, L, d){
+    const aT = atr(c, 14), sec = TF[tf].sec;
+    if (!(aT > 0)) return null;
+    const S = sweepEvent(c, n, L.p, d, aT, x.a1);
+    if (!S) return null;
+    const out = { tf, aT, S };
+    if (S.failed) return out;
+    out.B = bosOf(c, S, L.p, d, aT, sec);
+    out.ok = out.B.cls === "strong" || out.B.cls === "acceptable";
+    return out;
+  }
+  const STAGE = { approach: 0, at: 1, swept: 2, displaced: 3, retest: 4, ready: 5 };
+  function setupAt(x, d, L, u){
+    const a = x.a1, a15 = x.a15, now = x.now, up = d === 1, Lp = L.p, dist = Math.abs(x.price - Lp) / a;
+    const type = x.bias1 === d ? "trend" : x.bias1 === 0 ? "range" : "reversal";
+    const r15 = readTf(x, x.c15, "15m", 16, L, d), r5 = readTf(x, x.c5, "5m", 24, L, d);
+    const v15 = r15 && r15.ok, v5 = r5 && r5.ok;
+    // Playbook: dual = 15m and 5m both broke structure; 15m; 5m (fast)
+    const play = v15 && v5 ? "dual" : v15 ? "15m" : v5 ? "5m" : null;
+    const R = v15 ? r15 : v5 ? r5 : (r15 && r15.S && !r15.S.failed ? r15 : r5 && r5.S && !r5.S.failed ? r5 : (r15 || r5));
+    const S = R ? R.S : null, B = R && R.B ? R.B : null;
+    const sf = [];
+    let status, X, ext = null, rt = null, Z = null, entry, exp, Mx;
+    if (!S){ status = dist <= 1 ? "at" : "approach"; }
+    else if (S.failed){ status = "at"; sf.push(S.failed); }
+    else if (!play){ status = "swept"; }
+    else {
+      // Retest window after the (later) break
+      const bosT = play === "dual" ? Math.max(r15.B.t, r5.B.t) : R.B.t;
+      const maxMs = play === "5m" ? 12 * 300000 : 8 * 900000;
+      Z = zonesOf(x, R === r5 ? x.c5 : x.c15, S, B, L, d, a15);
+      const exts = [S.ext].concat(play === "dual" ? [r5.S.ext] : []);
+      ext = up ? Math.min(...exts) : Math.max(...exts);
+      // 5m playbook: retest judged on 5m. 15m / dual: a 5m confirmation inside the 15m structure counts,
+      // but a failure or time-out is judged on 15m closes (5m noise alone does not cancel a 15m setup).
+      const rt5 = retestOf(x.c5, "5m", bosT, Z, d, x.a5, ext, maxMs, now);
+      if (play === "5m" || rt5.state === "confirmed") rt = rt5;
+      else {
+        const r2 = retestOf(x.c15, "15m", bosT, Z, d, a15, ext, maxMs, now);
+        rt = r2.state === "confirmed" || r2.state === "failed" || r2.state === "timeout" ? r2 : rt5.state === "retest" ? rt5 : r2;
+      }
+      status = rt.state === "confirmed" ? "ready" : rt.state === "retest" ? "retest" : "displaced";
+      if (rt.state === "failed") sf.push("Invalid: retest " + rt.why);
+      if (rt.state === "timeout") sf.push("Expired: no retest within " + (maxMs / 60000) + " min of the break");
+      exp = status === "ready" ? rt.confT + (play === "5m" ? 30 : 45) * 60000 : bosT + maxMs;
+    }
+    if (!ext && S && !S.failed) ext = S.ext;
+    X = B ? B.swing : null;
+    if (X === null){
       const c = x.c15, pv = pivots(c.slice(-32), 2);
       const arr = (up ? pv.H : pv.L).map(v => v.p).filter(p => up ? p > x.price : p < x.price);
       X = arr.length ? arr[arr.length - 1] : (up ? Math.max(...c.slice(-8).map(b => b.h)) : Math.min(...c.slice(-8).map(b => b.l)));
       if ((X - Lp) * d < 0.3 * a) X = Lp + d * 0.3 * a;
       if ((X - Lp) * d > 1.2 * a) X = Lp + d * 1.2 * a;
-      let k = c.length - 1;
-      while (k > 0 && Math.abs((up ? c[k - 1].l : c[k - 1].h) - Lp) <= a) k--;
-      exp = c[k].t + 4 * HOUR;
     }
-    if (status === "ready"){ entry = up ? Math.min(x.price, X) : Math.max(x.price, X); sl = ext - d * 0.15 * a; exp = T.bosT + 2 * HOUR; }
-    else if (status === "swept"){ entry = X; sl = ext - d * 0.15 * a; exp = T.sweepT + 2 * HOUR; }
-    else { entry = X; sl = Lp - d * 0.45 * a; }
-    if ((entry - sl) * d <= 0) sl = entry - d * 0.5 * a;
-    // Target: next opposing level (a solid one if it is among the next two)
-    const opp = x.lv.filter(l => up ? l.p > entry + 0.3 * a : l.p < entry - 0.3 * a).sort((p, q) => up ? p.p - q.p : q.p - p.p);
-    const tgt = opp.slice(0, 2).find(l => l.strength >= 9) || opp[0] || null;
-    const risk = Math.abs(entry - sl);
-    let tp = tgt ? tgt.p - d * 0.1 * a : entry + d * 2 * risk;
-    if ((tp - entry) * d <= 0) tp = entry + d * 2 * risk;
-    const rew = (tp - entry) * d - entry * u.mk - tp * u.mk, rsk = (entry - sl) * d + entry * u.mk + sl * u.tk;
-    const rr = rsk > 0 ? Math.max(0, rew / rsk) : 0;
-    const Mx = X + d * 0.6 * (tp - X);
-    const needRR = type === "reversal" ? Math.max(2, u.minrr) : u.minrr;
-    // Has a Ready setup already failed or run away?
-    let fate = null;
-    if (status === "ready"){
-      let ret = false;
-      for (const b of T.c.slice(T.bosIdx + 1)){
-        if (up ? b.c < sl : b.c > sl){ fate = "invalid"; break; }
-        if (!ret && (up ? b.l <= X : b.h >= X)) ret = true;
-        if (!ret && (up ? b.h >= Mx : b.l <= Mx)){ fate = "missed"; break; }
+    if (!exp){
+      if (S && !S.failed) exp = S.sweepT + (R.tf === "5m" ? 1 : 2) * HOUR;
+      else {
+        const c = x.c15; let k = c.length - 1;
+        while (k > 0 && Math.abs((up ? c[k - 1].l : c[k - 1].h) - Lp) <= a) k--;
+        exp = c[k].t + 4 * HOUR;
       }
-      if (!fate && (up ? x.price >= Mx : x.price <= Mx)) fate = "missed";
     }
-    const sf = [];
-    if (fate === "invalid") sf.push("Invalid: closed beyond the stop");
-    if (fate === "missed") sf.push("Missed: ran toward target without a retest");
-    if (now > exp) sf.push("Expired: no follow-through in time");
-    if (status === "at" && dist > 1) sf.push("Not at the level yet (" + dist.toFixed(1) + " ATR away)");
-    if (type === "range" && (up ? x.rPos > 0.3 : x.rPos < 0.7)) sf.push("Middle of the 1H range");
-    if (type === "reversal" && status === "at") sf.push("Counter-trend: wait for a sweep");
-    if (type === "reversal" && L.strength < 12) sf.push("Counter-trend needs a strong level (" + L.strength + "/20)");
+    // Entry: confirmed retest close (Ready), otherwise an estimate at the break-point zone
+    entry = status === "ready" ? rt.entry : Z ? Z[0].mid : X;
+    // Stop: lowest logical invalidation (sweep extreme, retest low, level zone, range edge) + 0.5 x 15m ATR,
+    // and never closer than 1 x 15m ATR. Shadow variants record the alternatives.
+    const lvlEdge = up ? Math.min(L.zlo, Lp) : Math.max(L.zhi, Lp);
+    const pts = [{ k: "level zone", p: lvlEdge }];
+    if (ext !== null) pts.push({ k: "sweep extreme", p: ext });
+    if (rt && rt.low !== null && rt.low !== undefined) pts.push({ k: "retest low", p: rt.low });
+    if (type === "range") pts.push({ k: "range edge", p: up ? x.rLo : x.rHi });
+    const struct = pts.reduce((m, q) => (up ? q.p < m.p : q.p > m.p) ? q : m);
+    const BUF = 0.5, MIN = 1.0;
+    let sl = struct.p - d * BUF * a15, slWhy = struct.k + " - " + BUF + " x 15m ATR";
+    if ((entry - sl) * d < MIN * a15){ sl = entry - d * MIN * a15; slWhy = "volatility minimum (1 x 15m ATR)"; }
+    // ---- Target ladder (v4.2) ----
+    // T1 = nearest obstacle (any mapped level or internal 15m swing), T2 = first meaningful level (strength 9+),
+    // T3 = major liquidity beyond T2 (strong level or previous day/week high/low or 4H swing). Final target = T2.
+    // Range setups: range midpoint first. No meaningful level: 2R only if nothing at all is in the way ("open air").
+    const risk = Math.abs(entry - sl);
+    const opp = x.lv.filter(l => up ? l.p > entry + 0.15 * a15 : l.p < entry - 0.15 * a15).sort((p, q) => up ? p.p - q.p : q.p - p.p);
+    const pv15 = pivots(x.c15.slice(-48), 2);
+    const intl = (up ? pv15.H : pv15.L).map(v => v.p).filter(p => up ? p > entry + 0.15 * a15 : p < entry - 0.15 * a15).sort((p, q) => up ? p - q : q - p)[0];
+    const Rof = p => (p - entry) * d / (risk || 1);
+    let t1 = null;
+    if (opp[0] && (intl === undefined || (up ? opp[0].p <= intl : opp[0].p >= intl))) t1 = { p: opp[0].p, label: opp[0].label, strength: opp[0].strength };
+    else if (intl !== undefined) t1 = { p: intl, label: "internal 15m swing", strength: 0 };
+    const t2L = opp.find(l => l.strength >= 9) || null;
+    const t3L = opp.find(l => l !== t2L && (!t2L || (up ? l.p > t2L.p : l.p < t2L.p)) && (l.strength >= 14 || ["PWH", "PWL", "PDH", "PDL", "S4"].includes(l.primary))) || null;
+    let tgt = t2L, tp, tpNote = "";
+    if (t2L) tp = t2L.p - d * 0.1 * a;
+    else if (!opp.length && intl === undefined){ tp = entry + d * 2 * risk; tpNote = "open air: no opposing level found, 2R"; }
+    else { tp = entry + d * 2 * risk; tpNote = "2R, only weak levels ahead"; }
+    if (type === "range"){
+      const mid = (x.rHi + x.rLo) / 2, block = opp.find(l => up ? l.p < mid : l.p > mid);
+      if (block && block.strength >= 9){ tgt = block; tp = block.p - d * 0.1 * a; tpNote = "level before the range midpoint"; }
+      else if ((mid - entry) * d > 0){ tgt = null; tp = mid; tpNote = "range midpoint (opposite edge " + fmtPx(up ? x.rHi : x.rLo) + " is the stretch target)"; }
+    }
+    // Room checks
+    let roomFail = "";
+    if ((tp - entry) * d <= 0) roomFail = "No room: the target level is at or behind the entry";
+    const obst = opp.filter(l => l !== tgt && (up ? l.p < tp : l.p > tp));
+    const strongObst = obst.filter(l => l.strength >= 12);
+    if (!roomFail && strongObst.length && Rof(strongObst[0].p) < (type === "reversal" ? Math.max(2, u.minrr) : u.minrr))
+      roomFail = "Blocked: strong " + strongObst[0].label + " at " + fmtPx(strongObst[0].p) + " (" + Rof(strongObst[0].p).toFixed(1) + "R) before the target";
+    const reqMove = Math.abs(tp - entry), adr = x.adr || 0;
+    const roomADR = adr > 0 ? reqMove / adr : null;
+    const leftToday = adr > 0 ? Math.max(0, adr - (x.todayRange || 0)) : null;
+    const lateDay = leftToday !== null && reqMove > leftToday;
+    if (!roomFail && roomADR !== null && roomADR > 1.2) roomFail = "Target needs " + roomADR.toFixed(1) + "x the average daily range: not realistic";
+    const ladder = { t1: t1 ? Object.assign(t1, { R: +Rof(t1.p).toFixed(2) }) : null,
+                     t2: t2L ? { p: t2L.p, label: t2L.label, strength: t2L.strength, R: +Rof(t2L.p).toFixed(2) } : null,
+                     t3: t3L ? { p: t3L.p, label: t3L.label, strength: t3L.strength, R: +Rof(t3L.p).toFixed(2) } : null,
+                     obst: obst.length, strongObst: strongObst.length, roomADR, leftToday, lateDay, adr, reqMove };
+    if (roomFail) sf.push(roomFail);
+    const rrOf = slp => { const rew = (tp - entry) * d - entry * u.mk - tp * u.mk, rsk = (entry - slp) * d + entry * u.mk + slp * u.tk; return rsk > 0 ? Math.max(0, rew / rsk) : 0; };
+    const rr = rrOf(sl);
+    Mx = status === "ready" ? entry + d * 0.5 * (tp - entry) : X + d * 0.6 * (tp - X);
+    const needRR = type === "reversal" ? Math.max(2, u.minrr) : u.minrr;
+    const shadow = [["s0", 0], ["s50", 0.5], ["s75", 0.75], ["s100", 1.0]].map(([k, m]) => {
+      const p = struct.p - d * m * a15; return { k, buf: m, sl: p, rr: +rrOf(p).toFixed(3) };
+    });
+    // Has a Ready setup already failed or run away since the confirmation?
+    if (status === "ready"){
+      const after = x.c5.filter(k => k.t >= rt.confT);
+      for (const k of after){
+        if (up ? k.c < sl : k.c > sl){ sf.push("Invalid: closed beyond the stop"); break; }
+        if (up ? k.h >= Mx : k.l <= Mx){ sf.push("Missed: ran halfway to target before a fill"); break; }
+      }
+      if (!sf.length && (up ? x.price >= Mx : x.price <= Mx)) sf.push("Missed: ran halfway to target before a fill");
+    }
+    if (status !== "ready" && Mx && (up ? x.price >= Mx : x.price <= Mx) && STAGE[status] >= 2) sf.push("Missed: ran toward target without a retest");
+    if (now > exp && !sf.some(f => /^Expired/.test(f))) sf.push("Expired: no follow-through in time");
+    // Setup-type rules
+    if (type === "range"){
+      if (up ? x.rPos > 0.3 : x.rPos < 0.7) sf.push("Middle of the 1H range");
+      if (Math.abs(Lp - (up ? x.rLo : x.rHi)) > 0.5 * a) sf.push("Range setup must be at the 1H range edge");
+    }
+    if (type === "reversal"){
+      if (STAGE[status] < 2) sf.push("Counter-trend: wait for a sweep");
+      if (L.strength < 14) sf.push("Reversal needs a strong level (" + L.strength + "/20, need 14)");
+      if (play === "5m") sf.push("Reversal needs 15m confirmation (5m only)");
+      if (S && !S.failed && S.grade !== "clean") sf.push("Reversal needs a clean sweep (" + S.grade + ")");
+      if (play && B.cls !== "strong") sf.push("Reversal needs a strong break (" + B.cls + ")");
+      if (x.btc.bias1 === -d && x.btc.chg * d <= -1.5) sf.push("BTC moving strongly against the reversal (" + pct(x.btc.chg, 1) + ")");
+    }
+    if (play === "5m"){
+      if (L.strength < 12) sf.push("Fast 5m setup needs a solid level (" + L.strength + "/20, need 12)");
+      if (S.grade !== "clean") sf.push("Fast 5m setup needs a clean sweep (" + S.grade + ")");
+      if (B.cls !== "strong") sf.push("Fast 5m setup needs a strong break (" + B.cls + ")");
+    }
+    const riskMult = play === "5m" || type === "reversal" ? 0.5 : 1;
     let size = null;
     if (u.bal){
-      const per = Math.abs(entry - sl) + Math.abs(entry * u.mk) + Math.abs(sl * u.tk);
-      if (per > 0){ const qty = u.bal * u.risk / 100 / per; size = { qty, notional: qty * entry, risk: u.risk }; }
+      const per = Math.abs(entry - sl) + Math.abs(entry * u.mk) + Math.abs(sl * u.tk), rk = u.risk * riskMult;
+      if (per > 0){ const qty = u.bal * rk / 100 / per; size = { qty, notional: qty * entry, risk: +rk.toFixed(2), half: riskMult < 1 }; }
     }
     const word = up ? "support" : "resistance", lvTxt = fmtPx(Lp);
+    const swOk = S && !S.failed && S.grade !== "weak", bosOk = !!play;
     const s = {
       trend: type === "trend" ? { v: true, r: "1H is " + trendWord(x.bias1) + (x.tr4 === d ? ", 4H agrees" : "") }
-           : type === "range" ? { v: up ? x.rPos <= 0.3 : x.rPos >= 0.7, r: "1H is ranging, price is " + Math.round(x.rPos * 100) + "% up the range" }
-           : { v: status !== "at" && L.strength >= 12 && rr >= needRR, r: "Reversal: 1H is " + trendWord(x.bias1) + ", " + (status !== "at" ? "swept a " + strWord(L.strength) + " level" : "no sweep yet") + ", R:R 1:" + rr.toFixed(2) },
+           : type === "range" ? { v: (up ? x.rPos <= 0.3 : x.rPos >= 0.7) && !sf.some(f => /range edge/.test(f)), r: "1H is ranging, price is " + Math.round(x.rPos * 100) + "% up the range" }
+           : { v: STAGE[status] >= 2 && L.strength >= 14 && rr >= needRR && !sf.length, r: "Reversal: 1H is " + trendWord(x.bias1) + ", level " + L.strength + "/20, R:R 1:" + rr.toFixed(2) },
       level: dist <= 1 ? { v: true, r: "Price is " + dist.toFixed(1) + " ATR from " + word + " " + lvTxt + " (" + L.label + ")" }
                        : { v: false, r: "Price is " + dist.toFixed(1) + " ATR from " + word + " " + lvTxt },
-      sweep: T ? { v: true, r: tf + " wick " + (up ? "below " : "above ") + lvTxt + ", then closed back " + (up ? "above" : "below") }
-               : { v: false, r: "No sweep of " + lvTxt + " yet" },
-      bos: status === "ready" ? { v: true, r: tf + " candle closed " + (up ? "above " : "below ") + fmtPx(X) }
-                              : { v: false, r: "No close " + (up ? "above " : "below ") + fmtPx(X) + " yet" },
-      stop: T ? { v: true, r: "Pre-filled stop is just " + (up ? "below the sweep low " : "above the sweep high ") + fmtPx(ext) }
-              : { v: false, r: "No sweep yet. Pre-filled stop is an estimate" },
+      sweep: S && !S.failed ? { v: swOk, r: S.grade + " sweep on " + R.tf + ": " + S.depthT.toFixed(2) + " ATR past " + lvTxt + ", " + (S.beyond ? S.beyond + " close(s) beyond" : "closed back at once") + ", close in the top " + Math.round(S.rej * 100) + "% of the candle" }
+                            : { v: false, r: S && S.failed ? S.failed : "No sweep of " + lvTxt + " yet" },
+      bos: bosOk ? { v: true, r: B.cls + " break of " + fmtPx(B.swing) + " on " + (play === "dual" ? "15m and 5m" : play) + " (body " + Math.round(B.bodyR * 100) + "% of candle, " + B.bodyX.toFixed(1) + "x average)" }
+                 : { v: false, r: B && B.cls !== "none" ? "Break of " + fmtPx(B.swing) + " is " + B.cls + ", not convincing" : "No close " + (up ? "above " : "below ") + fmtPx(X) + " yet" },
+      retest: status === "ready" ? { v: true, r: rt.zone.n + " held: " + rt.tf + " candle closed " + (up ? "back up at " : "back down at ") + fmtPx(rt.entry) }
+                                 : { v: false, r: status === "retest" ? "Retesting " + rt.touch.n.toLowerCase().replace(" retest", "") + ", waiting for a confirming close" : status === "displaced" ? "Waiting for a pullback into " + fmtPx(Z[Z.length - 1].lo) + " to " + fmtPx(Z[0].hi) : "Needs a sweep and a break first" },
+      stop: status === "ready" ? { v: true, r: "Stop beyond the " + slWhy + " at " + fmtPx(sl) }
+                               : { v: false, r: "Stop is an estimate until the retest confirms" },
       fresh: { v: L.touches <= 2, r: "Tested " + L.touches + " time" + (L.touches === 1 ? "" : "s") + " in the last 5 days" },
-      room: { v: !!tgt && rr >= 1.5, r: tgt ? "Target " + fmtPx(tgt.p) + " (" + tgt.label + ") leaves 1:" + rr.toFixed(2) : "No clear level beyond, target set at 2R" }
+      room: { v: !roomFail && !strongObst.length && rr >= 1.5, r: roomFail || ("Target " + fmtPx(tp) + " (" + (tgt ? tgt.label : tpNote) + ") leaves 1:" + rr.toFixed(2) + (obst.length ? ", " + obst.length + " weaker level(s) in the way" : ", path clear")) }
     };
-    if (T && T.volX !== null) s.volume = T.volX >= 1.5 ? { v: true, r: "Sweep candle volume " + T.volX.toFixed(1) + "x average" }
-                                                        : { v: false, r: "Sweep candle volume only " + T.volX.toFixed(1) + "x average" };
-    return { x, ex: x.ex, sym: x.sym, base: x.base, dir: d, L, dist, status, type, tf: T ? tf : null, X, ext, entry, sl, tp, tgt,
-             tpNote: tgt ? "" : "2R, no clear level", rr, needRR, Mx, exp, statusFails: sf, size, s,
-             volX: T ? T.volX : null, funding: x.funding, sess: x.sess, oi: null, oiR: null, depth: undefined };
+    if (S && !S.failed && S.volX !== null) s.volume = S.volX >= 1.5 ? { v: true, r: "Sweep candle volume " + S.volX.toFixed(1) + "x average" }
+                                                                     : { v: false, r: "Sweep candle volume only " + S.volX.toFixed(1) + "x average" };
+    return { x, ex: x.ex, sym: x.sym, base: x.base, dir: d, L, dist, status, type, tf: play || (R && S && !S.failed ? R.tf : null), play, X, ext, entry, sl, tp, tgt,
+             tpNote, rr, needRR, Mx, exp, statusFails: sf, size, s, riskMult, struct, slWhy, shadow, zones: Z, rt, ladder, R,
+             sw: S && !S.failed ? S : null, swFail: S && S.failed ? S.failed : "", bos: B, a15, a5: x.a5,
+             volX: S && !S.failed ? S.volX : null, funding: x.funding, sess: x.sess, oi: null, oiR: null, depth: undefined };
   }
   // Reads OI change against the 24h price move for this direction
   function oiRead(dir, oi, pchg){
@@ -2410,7 +2664,7 @@ select option{background:#171034 !important}
     const both = x.strong4 && x.tr4 === -d && x.btc.bias1 === -d;
     const heavy = up ? f > 0.0008 : f < -0.0008;
     c.rules = [
-      { ok: c.rr >= c.needRR, t: "R:R 1:" + c.rr.toFixed(2) + " after fees (min 1:" + c.needRR + ")", f: "R:R 1:" + c.rr.toFixed(2) + " below 1:" + c.needRR },
+      { ok: c.rr >= c.needRR, t: "R:R 1:" + c.rr.toFixed(2) + " after fees (min 1:" + c.needRR + ")", f: "R:R 1:" + c.rr.toFixed(2) + " below 1:" + c.needRR + (c.tgt ? ": not enough room to the " + c.tgt.label : "") },
       { ok: !both, t: "4H and BTC are not both strongly against", f: "4H and BTC both strongly against" },
       { ok: !heavy, t: "Funding " + (f * 100).toFixed(4) + "% (not heavily crowded)", f: "Funding heavily crowded on your side (" + (f * 100).toFixed(3) + "%)" },
       { ok: x.ip.ok, t: "In play: volume " + x.ip.best.toFixed(1) + "x normal, ATR " + x.ip.volR.toFixed(2) + "x", f: x.ip.why }
@@ -2422,32 +2676,69 @@ select option{background:#171034 !important}
     c.fails = c.statusFails.concat(c.rules.filter(r => !r.ok).map(r => r.f));
     const B = [];
     const add = (k, pts, max, t) => B.push({ k, pts: Math.max(0, Math.min(max, Math.round(pts))), max, t });
-    add("Level strength", c.L.strength / 20 * 25, 25, c.L.label + ", " + c.L.strength + "/20");
+    add("Level strength", c.L.strength, 20, c.L.label + ", " + c.L.strength + "/20");
     const ag = x.tr4 === d, nt = x.tr4 === 0;
-    add("Trend fit", c.type === "trend" ? (ag ? 20 : nt ? 15 : 8) : c.type === "range" ? (ag ? 14 : nt ? 11 : 6) : (ag ? 12 : nt ? 8 : 3), 20,
+    add("Trend fit", c.type === "trend" ? (ag ? 15 : nt ? 12 : 6) : c.type === "range" ? (ag ? 11 : nt ? 9 : 5) : (ag ? 9 : nt ? 6 : 2), 15,
         TYPE[c.type] + ", 1H " + trendWord(x.bias1) + ", 4H " + trendWord(x.tr4));
     add("BTC", x.btc.bias1 === d ? 5 : x.btc.bias1 === 0 ? 3 : 0, 5, "BTC 1H " + trendWord(x.btc.bias1));
-    add("Reward : risk", c.rr >= 3 ? 15 : c.rr >= 2.5 ? 13 : c.rr >= 2 ? 11 : c.rr >= 1.5 ? 7 : 3, 15, "1:" + c.rr.toFixed(2) + " after fees");
+    add("Reward : risk", c.rr >= 3 ? 10 : c.rr >= 2.5 ? 9 : c.rr >= 2 ? 7 : c.rr >= 1.5 ? 5 : 2, 10, "1:" + c.rr.toFixed(2) + " after fees");
     add("In play", x.ip.best >= 2 ? 10 : x.ip.best >= 1.5 ? 8 : x.ip.best >= 1.2 ? 6 : 3, 10, "Volume " + x.ip.rel24.toFixed(1) + "x (24h), " + x.ip.rel4.toFixed(1) + "x (4h)");
     let of = 5 + (c.oiR ? c.oiR.pts : 0);
     if (up ? f > 0.0005 : f < -0.0005) of -= 3; else if (up ? f < -0.0003 : f > 0.0003) of += 2;
     add("OI & funding", of, 10, (c.oiR ? c.oiR.txt : c.oi === null ? "OI not checked" : "OI unavailable") + ", funding " + (f * 100).toFixed(4) + "%");
     add("vs BTC", d * x.rs > 2 ? 5 : d * x.rs > 0 ? 3 : 0, 5, pct(x.rs, 1) + " vs BTC (24h)");
     add("Session", c.sess.pts, 5, c.sess.n);
-    add("Sweep quality", c.volX === null ? 2 : c.volX >= 2 ? 5 : c.volX >= 1.5 ? 4 : 2, 5, c.volX === null ? "Not swept yet" : "Sweep volume " + c.volX.toFixed(1) + "x average");
+    // Trigger quality: sweep (7) + break (7) + retest (6)
+    const swP = !c.sw ? 0 : { clean: 7, acceptable: 5, weak: 2 }[c.sw.grade] || 0;
+    const bP = !c.bos || !c.play ? (c.bos && c.bos.cls === "weak" ? 1 : 0) : c.bos.cls === "strong" ? 7 : 5;
+    const rP = c.status === "ready" ? 6 : c.status === "retest" ? 3 : 0;
+    add("Trigger quality", swP + bP + rP, 20, (c.sw ? c.sw.grade + " sweep" : c.swFail ? "sweep failed" : "no sweep") + ", " +
+        (c.bos && c.bos.cls !== "none" ? c.bos.cls + " break" : "no break") + ", " + (c.status === "ready" ? "retest confirmed" : c.status === "retest" ? "retesting" : "no retest yet"));
     c.breakdown = B;
     c.gscore = B.reduce((s, b) => s + b.pts, 0);
-    c.grade = c.gscore >= 75 ? "A" : c.gscore >= 60 ? "B" : "C";
+    // ---- Four ratings (v4.2): the weakest one decides ----
+    const cl = v => Math.max(0, Math.min(100, Math.round(v)));
+    const bNear = up ? x.btc.resD : x.btc.supD;
+    const btcBlock = bNear !== undefined && bNear !== null && bNear < 0.5;
+    const mkt = cl((x.ip.best >= 2 ? 30 : x.ip.best >= 1.5 ? 24 : x.ip.best >= 1.2 ? 18 : 8) + (x.btc.bias1 === d ? 20 : x.btc.bias1 === 0 ? 12 : 0) +
+                   c.sess.pts * 4 + Math.max(0, Math.min(10, of)) * 2 + (d * x.rs > 2 ? 10 : d * x.rs > 0 ? 6 : 0) - (btcBlock ? 10 : 0));
+    const nS = (c.L.srcs || []).length;
+    const lvl = cl(c.L.strength / 20 * 60 + (nS >= 3 ? 20 : nS === 2 ? 12 : 5) + (c.L.touches >= 1 && c.L.touches <= 3 ? 20 : c.L.touches === 0 ? 12 : c.L.touches <= 5 ? 10 : 0));
+    const trg = cl((!c.sw ? 0 : ({ clean: 35, acceptable: 25, weak: 10 }[c.sw.grade] || 0)) +
+                   (!c.bos || c.bos.cls === "none" ? 0 : c.bos.cls === "strong" ? 35 : c.bos.cls === "acceptable" ? 25 : 5) +
+                   (c.status === "ready" ? 30 : c.status === "retest" ? 15 : 0) - (c.play === "5m" ? 10 : 0));
+    const lad = c.ladder || {}, sd = c.a15 > 0 ? Math.abs(c.entry - c.sl) / c.a15 : 2;
+    const pln = cl((c.rr >= 3 ? 40 : c.rr >= 2.5 ? 34 : c.rr >= 2 ? 28 : c.rr >= 1.5 ? 20 : 8) +
+                   (lad.roomADR === null || lad.roomADR === undefined ? 15 : lad.roomADR <= 0.5 ? 25 : lad.roomADR <= 0.8 ? 18 : lad.roomADR <= 1.0 ? 10 : 0) +
+                   (!lad.obst ? 15 : lad.strongObst ? 0 : 8) + (sd <= 3 ? 20 : sd <= 5 ? 12 : 4) - (lad.lateDay ? 8 : 0));
+    c.ratings = [
+      { k: "market", n: "Market", v: mkt, t: "volume, BTC, session, OI & funding, strength vs BTC" + (btcBlock ? ", BTC is close to its own " + (up ? "resistance" : "support") : "") },
+      { k: "level", n: "Level", v: lvl, t: c.L.strength + "/20, " + nS + " source" + (nS === 1 ? "" : "s") + ", " + c.L.touches + " recent tests" },
+      { k: "trigger", n: "Trigger", v: trg, t: (c.sw ? c.sw.grade + " sweep" : "no sweep") + ", " + (c.bos && c.bos.cls !== "none" ? c.bos.cls + " break" : "no break") + ", " + (c.status === "ready" ? "retest confirmed" : c.status === "retest" ? "retesting" : "no retest") },
+      { k: "plan", n: "Trade plan", v: pln, t: "R:R 1:" + c.rr.toFixed(2) + (lad.roomADR !== null && lad.roomADR !== undefined ? ", needs " + lad.roomADR.toFixed(2) + "x daily range" : "") + ", " + (lad.obst || 0) + " obstacle(s), stop " + sd.toFixed(1) + " x 15m ATR" }
+    ];
+    // Ready needs all four at 50+. Earlier stages need Market and Level at 50+ (trigger and plan are still forming).
+    const crit = c.status === "ready" ? c.ratings : c.ratings.filter(r => r.k === "market" || r.k === "level");
+    const weak = crit.slice().sort((p, q) => p.v - q.v)[0];
+    c.conf = Math.min(...crit.map(r => r.v));
+    c.weakest = weak;
+    if (weak.v < 50) c.fails.push("Weakest part: " + weak.n + " " + weak.v + "/100");
+    c.grade = c.conf >= 70 ? "A" : c.conf >= 55 ? "B" : "C";   // grade = weakest critical rating
     describe(c);
     return c;
   }
   const TYPE = { trend: "With-trend", range: "Range edge", reversal: "Reversal" };
-  const STATUS = { ready: "Ready", swept: "Swept, wait for BOS", at: "At level" };
+  const STATUS = { ready: "Ready", retest: "Retesting", displaced: "Broke structure, wait for retest", swept: "Swept, wait for a strong break", at: "At level", approach: "Approaching" };
+  const PLAY = { dual: "Dual (15m + 5m)", "15m": "Standard 15m", "5m": "Fast 5m" };
   function describe(c){
     const x = c.x, d = c.dir, up = d === 1, L = c.L;
     const lv = L.label + " " + fmtPx(L.p);
-    const s1 = c.status === "ready" ? "Swept " + lv + ", " + c.tf + " closed " + (up ? "above " : "below ") + fmtPx(c.X)
-             : c.status === "swept" ? "Swept " + lv + " and closed back " + (up ? "above" : "below")
+    const z = c.rt && (c.rt.zone || c.rt.touch);
+    const s1 = c.status === "ready" ? "Swept " + lv + " (" + c.sw.grade + "), " + c.bos.cls + " break of " + fmtPx(c.X) + ", " + z.n.toLowerCase() + " held with a " + c.rt.tf + " close at " + fmtPx(c.entry)
+             : c.status === "retest" ? "Swept " + lv + ", " + c.bos.cls + " break of " + fmtPx(c.X) + ", now retesting the " + z.n.toLowerCase().replace(" retest", "")
+             : c.status === "displaced" ? "Swept " + lv + " and broke " + fmtPx(c.X) + " (" + c.bos.cls + "), waiting for a pullback"
+             : c.status === "swept" ? "Swept " + lv + " (" + c.sw.grade + ")" + (c.bos && c.bos.cls !== "none" ? ", break of " + fmtPx(c.X) + " so far " + c.bos.cls : ", waiting for a break of " + fmtPx(c.X))
+             : c.status === "approach" ? "Approaching " + strWord(L.strength) + " " + (up ? "support " : "resistance ") + fmtPx(L.p) + " (" + L.label + ")"
              : "At " + strWord(L.strength) + " " + (up ? "support " : "resistance ") + fmtPx(L.p) + " (" + L.label + ")";
     const s2 = c.type === "trend" ? "1H " + trendWord(x.bias1) + (x.tr4 === d ? ", 4H agrees" : x.tr4 === 0 ? ", 4H neutral" : ", 4H against")
              : c.type === "range" ? "1H ranging, price at the " + (up ? "bottom" : "top") + " of the range"
@@ -2465,26 +2756,38 @@ select option{background:#171034 !important}
     const f = c.funding || 0;
     if (up ? f > 0.0005 : f < -0.0005) r.push("Funding is crowded on your side (" + (f * 100).toFixed(3) + "%)");
     if (c.oiR && c.oiR.state === false) r.push(c.oiR.txt);
-    if (c.status === "ready" && Math.abs(x.price - c.entry) / x.a1 > 1) r.push("Price is " + (Math.abs(x.price - c.entry) / x.a1).toFixed(1) + " ATR from entry, it may not come back");
-    if (c.status === "ready" && c.tf === "5m") r.push("5m trigger only, faster and less reliable");
+    if (c.status === "ready" && Math.abs(x.price - c.entry) / x.a15 > 1) r.push("Price is " + (Math.abs(x.price - c.entry) / x.a15).toFixed(1) + " x 15m ATR from entry, it may not come back");
+    if (c.riskMult < 1) r.push((c.play === "5m" ? "Fast 5m setup" : "Reversal") + ": half risk");
+    if (c.weakest && c.weakest.v < 65) r.unshift("Weakest part: " + c.weakest.n + " " + c.weakest.v + "/100");
+    const bN = up ? x.btc.resD : x.btc.supD;
+    if (bN !== undefined && bN !== null && bN < 0.5) r.push("BTC is " + bN.toFixed(1) + " ATR from its own " + (up ? "resistance" : "support"));
+    if (c.ladder && c.ladder.lateDay) r.push("Target is bigger than the move left in today's average range");
+    if (c.ladder && c.ladder.obst) r.push(c.ladder.obst + " weaker level(s) between entry and target");
     if (L.touches >= 6) r.push("Level tested " + L.touches + " times recently, it may be wearing out");
     if (c.rr < c.needRR + 0.3) r.push("R:R is close to your minimum");
     if (c.sess.pts === 1) r.push(c.sess.n + " session, moves can be slow");
     c.risks = r.slice(0, 2);
+    const zr = c.zones ? fmtPx(c.zones[c.zones.length - 1].lo) + " to " + fmtPx(c.zones[0].hi) : "";
     if (c.status === "ready"){
       const atNow = up ? x.price <= c.entry * 1.0005 : x.price >= c.entry * 0.9995;
-      c.enterTxt = atNow ? "Price is at the entry now: limit " + fmtPx(c.entry) : "Limit " + fmtPx(c.entry) + " on the retest (price now " + fmtPx(x.price) + ")";
-      c.invTxt = c.tf + " close " + (up ? "below " : "above ") + fmtPx(c.sl) + ", or " + fmtPx(c.Mx) + " reached with no retest";
+      c.enterTxt = (atNow ? "Price is at the entry now: limit " : "Limit ") + fmtPx(c.entry) + " (retest confirmed" + (atNow ? ")" : ", price now " + fmtPx(x.price) + ")");
+      c.invTxt = "close " + (up ? "below " : "above ") + fmtPx(c.sl) + " before the fill, or " + fmtPx(c.Mx) + " reached first (missed)";
+    } else if (c.status === "retest"){
+      c.enterTxt = "When a 5m/15m candle closes back " + (up ? "up" : "down") + " from " + fmtPx(z.lo) + " to " + fmtPx(z.hi) + " with a rejection (price now " + fmtPx(x.price) + ")";
+      c.invTxt = "close through the retest zone, or beyond the sweep " + (up ? "low " : "high ") + fmtPx(c.ext);
+    } else if (c.status === "displaced"){
+      c.enterTxt = "Wait for a pullback into " + zr + ", then a confirming close (price now " + fmtPx(x.price) + ")";
+      c.invTxt = "price closes beyond the sweep " + (up ? "low " : "high ") + fmtPx(c.ext) + ", or runs to " + fmtPx(c.Mx) + " without a retest";
     } else if (c.status === "swept"){
-      c.enterTxt = "After a " + c.tf + " close " + (up ? "above " : "below ") + fmtPx(c.X) + ", limit on the retest (price now " + fmtPx(x.price) + ")";
-      c.invTxt = "Price breaks " + (up ? "below the sweep low " : "above the sweep high ") + fmtPx(c.ext);
+      c.enterTxt = "Needs a strong close " + (up ? "above " : "below ") + fmtPx(c.X) + ", then a retest (price now " + fmtPx(x.price) + ")";
+      c.invTxt = "price closes beyond the sweep " + (up ? "low " : "high ") + fmtPx(c.ext);
     } else {
-      c.enterTxt = "After a sweep " + (up ? "below " : "above ") + fmtPx(L.p) + " and a 15m/5m close " + (up ? "above " : "below ") + fmtPx(c.X) + " (price now " + fmtPx(x.price) + ")";
+      c.enterTxt = "Needs a sweep " + (up ? "below " : "above ") + fmtPx(L.p) + ", a strong close " + (up ? "above " : "below ") + fmtPx(c.X) + ", then a retest (price now " + fmtPx(x.price) + ")";
       c.invTxt = "15m close " + (up ? "below " : "above ") + fmtPx(L.p - d * 0.25 * x.a1);
     }
   }
   // Ranks setups that did not pass, to name the closest one
-  const closeKey = c => ({ ready: 3, swept: 2, at: 1 }[c.status] || 0) * 20 + c.gscore - c.fails.length * 15;
+  const closeKey = c => (STAGE[c.status] || 0) * 20 + c.gscore - c.fails.length * 15;
   // ================= ENGINE END =================
   // ---------------- SCAN ----------------
   let busy = false, lastScan = 0;
@@ -2516,7 +2819,12 @@ select option{background:#171034 !important}
   }
   async function btcCtx(ex, btcT){
     const b1 = closedOnly(await ex.klines(btcT.sym, "1h"), "1h"), b4 = closedOnly(await ex.klines(btcT.sym, "4h"), "4h");
-    return { bias1: structure(b1.slice(-120), 2), tr4: structure(b4, 3), chg: b1.length > 25 ? (btcT.last / b1[b1.length - 24].c - 1) * 100 : 0 };
+    const a1 = atr(b1, 14), aPrev = atr(b1.slice(0, -48), 14), p = btcT.last;
+    const lv = a1 > 0 ? buildLevels(b1, b4, a1, Date.now()) : [];
+    const above = lv.filter(l => l.p > p && l.strength >= 9).sort((x, y) => x.p - y.p)[0], below = lv.filter(l => l.p < p && l.strength >= 9).sort((x, y) => y.p - x.p)[0];
+    return { bias1: structure(b1.slice(-120), 2), tr4: structure(b4, 3), chg: b1.length > 25 ? (p / b1[b1.length - 24].c - 1) * 100 : 0,
+             volR: aPrev > 0 ? a1 / aPrev : 1, resD: above && a1 > 0 ? (above.p - p) / a1 : null, supD: below && a1 > 0 ? (p - below.p) / a1 : null,
+             resP: above ? above.p : null, supP: below ? below.p : null };
   }
   async function scan(auto){
     if (busy) return;
@@ -2527,6 +2835,8 @@ select option{background:#171034 !important}
     const maxCoins = Math.min(100, Math.max(5, parseInt($("maxCoins").value, 10) || 40));
     const dirMode = $("dirMode").value, dirs = dirMode === "long" ? [1] : dirMode === "short" ? [-1] : [1, -1];
     const prog = $("prog"); prog.style.width = "0%";
+    const run = { startT: Date.now(), ver: SCANNER_VERSION, src: BG ? "bg" : auto ? "auto" : "manual", ex: exKey, requested: 0, completed: 0, failed: 0, ready: 0, watching: 0, logged: 0, status: "" };
+    const newSig = []; scanNew = newSig;
     try {
       $("status").textContent = (auto ? "Auto-refresh: " : "") + "Loading " + ex.name + " tickers...";
       const all = await ex.tickers();
@@ -2540,7 +2850,15 @@ select option{background:#171034 !important}
         .sort((a, b) => b.vol - a.vol)
         .slice(0, maxCoins);
       if (!list.length) throw new Error("No coins match the volume filter. Lower the minimum 24h volume.");
+      // Market regime (recorded with every signal, not used to block trades)
+      const alts = list.filter(t => t.base !== "BTC"), fs = list.map(t => t.funding || 0).sort((p, q) => p - q), medF = fs[Math.floor(fs.length / 2)] || 0;
+      const brd = alts.length ? alts.filter(t => t.chg > btc.chg).length / alts.length : 0.5;
+      btc.regime = { trend: btc.bias1 === 0 ? "BTC ranging" : "BTC trending " + (btc.bias1 === 1 ? "up" : "down"),
+                     vol: (btc.volR || 1) > 1.3 ? "High volatility" : (btc.volR || 1) < 0.75 ? "Low volatility" : "Normal volatility",
+                     alts: brd > 0.6 ? "Alts stronger than BTC" : brd < 0.4 ? "Alts weaker than BTC" : "Alts mixed",
+                     fund: medF > 0.0003 ? "Longs crowded" : medF < -0.0001 ? "Shorts crowded" : "Funding neutral", breadth: Math.round(brd * 100), medF };
       const rows = []; let done = 0, fails = 0, lastErr = "";
+      run.requested = list.length;
       await pool(list, 4, async tk => {
         try {
           const data = { c4: await ex.klines(tk.sym, "4h"), c1: await ex.klines(tk.sym, "1h"),
@@ -2554,9 +2872,11 @@ select option{background:#171034 !important}
         if (BG && window.MWNative.bgProgress) window.MWNative.bgProgress("Scanning " + done + "/" + list.length);
         $("status").textContent = "Scanning " + done + "/" + list.length + ": " + tk.base + "USDT";
       });
+      run.completed = done - fails; run.failed = fails;
       if (fails === list.length) throw new Error("Candle data could not be loaded for any coin. Last error: " + lastErr);
       // Best passing setup per coin, then OI and order book for the leaders
-      const passing = [].concat(...rows.map(r => r.cands.filter(c => !c.fails.length))).sort((a, b) => b.gscore - a.gscore);
+      const rank = (a, b) => (b.status === "ready") - (a.status === "ready") || STAGE[b.status] - STAGE[a.status] || b.conf - a.conf || b.gscore - a.gscore;
+      const passing = [].concat(...rows.map(r => r.cands.filter(c => !c.fails.length))).sort(rank);
       const best = new Map(); passing.forEach(c => { if (!best.has(c.sym)) best.set(c.sym, c); });
       const lead = [...best.values()].slice(0, 10);
       if (lead.length){
@@ -2568,7 +2888,7 @@ select option{background:#171034 !important}
           gradeOf(c);
         });
       }
-      const final = lead.filter(c => !c.fails.length).sort((a, b) => b.gscore - a.gscore);
+      const final = lead.filter(c => !c.fails.length).sort(rank);
       const ready = final.filter(c => c.status === "ready").slice(0, 3);
       const watching = final.filter(c => c.status !== "ready").slice(0, 2);
       // Closest candidate when nothing qualifies
@@ -2600,14 +2920,20 @@ select option{background:#171034 !important}
       stopAll();
       inChkCard = null;
       renderResults({ ready, watching, closest, warn, all: all2, scanned: list.length });
-      ready.forEach(logSignal);
+      ready.forEach(c => logSignal(c));
+      run.ready = ready.length; run.watching = watching.length; run.logged = newSig.length;
       $("status").textContent = btcNote + "Done. " + ready.length + " ready, " + watching.length + " watching, " + list.length + " scanned" + (fails ? " (" + fails + " failed to load)" : "") + ".";
+      run.status = $("status").textContent.replace(/^.*Done\. /, "");
       saveResults();
-      updateSignals();
+      if (!BG) updateSignals();
     } catch(e){
+      run.status = "Stopped: " + (e && e.message ? e.message : e);
       $("status").textContent = "Scan stopped.";
       showErr(e instanceof TypeError ? explainFetchError(e) : "<b>Scan stopped:</b> " + esc(e && e.message ? e.message : e));
     } finally {
+      scanNew = null; lastNew = newSig;
+      run.endT = Date.now();
+      if (DB) try { DB.runLog(JSON.stringify(run)); } catch(e){}
       busy = false; $("btnScan").disabled = false; $("btnScan").textContent = "Scan now";
     }
   }
@@ -2619,6 +2945,9 @@ select option{background:#171034 !important}
     $("mBtcChg").innerHTML = '<span class="' + (btc.chg >= 0 ? "pos" : "neg") + '">' + pct(btc.chg) + "</span>";
     $("mSess").textContent = sessionOf(Date.now()).n;
     $("mTime").textContent = hhmm(Date.now()) + ($("autoRef").checked ? " (auto)" : "");
+    const g = btc.regime;
+    $("mReg").innerHTML = g ? esc(g.trend) + " &middot; " + esc(g.vol) + " &middot; " + esc(g.alts) + " (" + g.breadth + "% beat BTC) &middot; " + esc(g.fund) +
+      (btc.resP ? " &middot; BTC resistance " + fmtPx(btc.resP) + " (" + btc.resD.toFixed(1) + " ATR)" : "") + (btc.supP ? ", support " + fmtPx(btc.supP) + " (" + btc.supD.toFixed(1) + " ATR)" : "") : "";
   }
   function expTxt(ts){
     const m = Math.round((ts - Date.now()) / 60000);
@@ -2629,8 +2958,14 @@ select option{background:#171034 !important}
     const row = (k, v) => '<div class="prow"><span class="pk">' + k + '</span><span>' + v + '</span></div>';
     const est = c.status === "ready" ? "" : " <small class='k'>(estimate)</small>";
     return row("Enter", esc(c.enterTxt)) +
+      (c.zones ? row("Entry zone", c.zones.map(z => esc(z.n.replace(" retest", "")) + " " + fmtPx(z.lo) + "&ndash;" + fmtPx(z.hi)).join(" &middot; ")) : "") +
       row("Plan", "SL <b>" + fmtPx(c.sl) + "</b> &middot; TP <b>" + fmtPx(c.tp) + "</b>" + (c.tpNote ? " <small class='k'>(" + esc(c.tpNote) + ")</small>" : "") + " &middot; R:R <b>1:" + c.rr.toFixed(2) + "</b>" + est) +
-      row("Size", c.size ? "<b>" + qtyTxt(c.size.qty) + " " + esc(c.base) + "</b> <small class='k'>(" + fmtVol(c.size.notional) + " position, " + c.size.risk + "% risk)</small>"
+      (c.ladder ? row("Targets", ["t1", "t2", "t3"].map(k => c.ladder[k] ? k.toUpperCase() + " " + fmtPx(c.ladder[k].p) + " <small class='k'>(" + c.ladder[k].R + "R)</small>" : "").filter(Boolean).join(" &middot; ") +
+         (c.ladder.roomADR !== null && c.ladder.roomADR !== undefined ? "<br><small class='k'>Needs " + c.ladder.roomADR.toFixed(2) + "x the average daily range" + (c.ladder.lateDay ? ", more than is left today" : "") + "</small>" : "")) : "") +
+      (c.ratings ? row("Ratings", c.ratings.map(r => '<span class="rt ' + (r.v >= 70 ? "pos" : r.v >= 50 ? "" : "neg") + '">' + r.n + " " + r.v + "</span>").join(" &middot; ") +
+         (c.weakest ? " <small class='k'>(weakest: " + esc(c.weakest.n) + ")</small>" : "")) : "") +
+      row("Stop", esc(c.slWhy) + (c.status === "ready" ? "" : " <small class='k'>(estimate)</small>")) +
+      row("Size", c.size ? "<b>" + qtyTxt(c.size.qty) + " " + esc(c.base) + "</b> <small class='k'>(" + fmtVol(c.size.notional) + " position, " + c.size.risk + "% risk" + (c.size.half ? ", half risk" : "") + ")</small>"
                          : "<span class='k'>Add your balance in the calculator to see size</span>") +
       row("Invalid if", esc(c.invTxt)) +
       row("Expires", expTxt(c.exp));
@@ -2644,7 +2979,18 @@ select option{background:#171034 !important}
       (c.depth === undefined ? '<div class="k">Order book not checked</div>' : c.depth === null ? '<div class="k">Order book could not be checked</div>' : "");
     const oi = c.oi ? pct(c.oi.chg, 1) + " (24h), " + pct(c.oi.chg4, 1) + " (4h)" + (c.oi.src ? " via " + esc(c.oi.src) : "") + (c.oiR ? ". " + esc(c.oiR.txt) : "")
                     : c.oi === null ? "Not available" : "Not checked";
-    return '<h4>Grade breakdown: ' + c.gscore + '/100</h4><table>' + bd + '</table>' +
+    const sw = c.sw, B = c.bos, f2 = v => isFinite(v) ? (+v).toFixed(2) : "-";
+    const trig = '<h4>Trigger</h4><table>' +
+      tr("Playbook", c.play ? PLAY[c.play] + (c.riskMult < 1 ? " &middot; half risk" : "") : "Not confirmed yet") +
+      tr("Sweep", sw ? esc(sw.grade) + " (" + esc(sw.cls) + ") &middot; depth " + f2(sw.depthT) + " ATR (" + f2(sw.depth / c.a5) + " x 5m, " + f2(sw.depth / c.a15) + " x 15m) &middot; close at " +
+         Math.round(sw.rej * 100) + "% of candle &middot; " + sw.beyond + " close(s) beyond &middot; volume " + (sw.volX === null ? "-" : f2(sw.volX) + "x") : esc(c.swFail || "None yet")) +
+      tr("Break", B && B.cls !== "none" ? esc(B.cls) + " &middot; swing " + fmtPx(B.swing) + (B.real ? " (prominence " + f2(B.prom) + " ATR)" : " (no clear pivot)") +
+         (B.idx >= 0 ? " &middot; body " + Math.round(B.bodyR * 100) + "% / " + f2(B.bodyX) + "x avg &middot; closed " + f2(B.beyond) + " ATR beyond &middot; volume " + f2(B.volB) + "x &middot; " + B.speed + " candles after sweep" : "") : "None yet") +
+      tr("Retest", c.rt ? esc(c.rt.state) + (c.rt.zone ? " &middot; " + esc(c.rt.zone.n) + " on " + c.rt.tf : c.rt.touch ? " &middot; touched " + esc(c.rt.touch.n) : "") + (c.rt.why ? " &middot; " + esc(c.rt.why) : "") : "-") +
+      tr("Stop candidates", "Structure: " + esc(c.struct.k) + " " + fmtPx(c.struct.p) + "<br>" + c.shadow.map(v => "+" + v.buf + " ATR: " + fmtPx(v.sl) + " (1:" + v.rr.toFixed(2) + ")").join(" &middot; ") +
+         "<br>Used: " + esc(c.slWhy)) + '</table>';
+    const rts = c.ratings ? '<h4>Ratings (grade = weakest)</h4><table>' + c.ratings.map(r => '<tr><td>' + r.n + '</td><td>' + esc(r.t) + '</td><td class="pts">' + r.v + '/100</td></tr>').join("") + '</table>' : "";
+    return rts + '<h4>Score breakdown: ' + c.gscore + '/100</h4><table>' + bd + '</table>' + trig +
       '<h4>Rules</h4><div class="rchk">' + rules + '</div>' +
       '<h4>Levels</h4><table>' +
         tr("Traded level", fmtPx(L.p) + " &middot; " + esc(L.label) + " &middot; " + L.strength + "/20 (" + strWord(L.strength) + "), " + L.touches + " recent test" + (L.touches === 1 ? "" : "s")) +
@@ -2697,12 +3043,12 @@ select option{background:#171034 !important}
     const fail = c.fails[0] || "";
     card.classList.toggle("dead", !!fail);
     card.classList.toggle("ready", !fail && c.status === "ready");
-    card.classList.toggle("sweep", !fail && c.status === "swept");
+    card.classList.toggle("sweep", !fail && (c.status === "swept" || c.status === "displaced" || c.status === "retest"));
     const short = /^Invalid/.test(fail) ? "Invalid" : /^Missed/.test(fail) ? "Missed" : /^Expired/.test(fail) ? "Expired" : "Rule failed";
     setF(q(".gpill"), "Grade " + c.grade, "gpill g" + c.grade, quiet);
     setF(q(".pill"), fail ? short : STATUS[c.status], "pill " + (fail ? "dead" : c.status), quiet);
-    setF(q(".ttag"), TYPE[c.type] + (c.status === "ready" && c.tf ? " &middot; " + c.tf + " trigger" : ""), "ttag", quiet);
-    setF(q(".scnum"), c.gscore + ' <small>/100</small>', "scnum", quiet);
+    setF(q(".ttag"), TYPE[c.type] + (c.play ? " &middot; " + PLAY[c.play] : ""), "ttag", quiet);
+    setF(q(".scnum"), (c.conf !== undefined ? c.conf : c.gscore) + ' <small>/100 conf.</small>', "scnum", quiet);
     setF(q(".why"), (fail ? '<b class="neg">' + esc(fail) + '.</b> ' : '') + esc(c.why.join(". ")) + ".", undefined, quiet);
     setF(q(".plan"), planHtml(c), undefined, quiet);
     const wl = q(".wline");
@@ -2761,113 +3107,659 @@ select option{background:#171034 !important}
     if (watches.size){ $("status").textContent = "Auto-refresh paused while coins are on live watch."; return; }
     scan(true);
   }, 20000);
-  // ---------------- SIGNAL TRACKING ----------------
-  const SIG_KEY = "mwSignals";
-  const sigLoad = () => { try { return JSON.parse(localStorage.getItem(SIG_KEY)) || []; } catch(e){ return []; } };
-  const sigSave = a => { try { localStorage.setItem(SIG_KEY, JSON.stringify(a.slice(-400))); } catch(e){} };
-  function logSignal(c){
-    if (!c || c.fails.length || c.status !== "ready") return;
-    const a = sigLoad(), now = Date.now();
-    if (a.some(s => s.ex === c.ex && s.sym === c.sym && s.dir === c.dir && now - s.t < 6 * HOUR && Math.abs(s.entry - c.entry) / c.entry < 0.005)) return;
-    a.push({ t: now, ex: c.ex, sym: c.sym, base: c.base, dir: c.dir, grade: c.grade, g: c.gscore, type: c.type, tf: c.tf, lt: c.L.primary,
-             entry: c.entry, sl: c.sl, tp: c.tp, M: c.Mx, exp: c.exp, rr: c.rr, res: "pending" });
-    sigSave(a); renderPerf();
+  // ---------------- SIGNAL HISTORY (v4: permanent database on the phone) ----------------
+  const SCANNER_VERSION = "4.2";
+  const DB = window.MWDb && typeof window.MWDb.insert === "function" ? window.MWDb : null;
+  try { localStorage.removeItem("mwSignals"); } catch(e){}          // v3 browser history is not used any more
+  let scanNew = null, lastNew = [];                                   // signals logged by the scan in progress / the last scan
+  const jparse = (s, d) => { try { return JSON.parse(s); } catch(e){ return d; } };
+  const r3 = v => isFinite(v) ? Math.round(v * 1000) / 1000 : null;
+
+  // Freezes the full trade plan and the market picture at the moment the signal fired. Never changed later.
+  function logSignal(c, src){
+    if (!DB || !c || c.fails.length || c.status !== "ready") return null;
+    const x = c.x, L = c.L;
+    const snap = {
+      price: x.price, dist: r3(c.dist), sweepExt: c.ext, bos: c.X,
+      level: { p: L.p, label: L.label, strength: L.strength, touches: L.touches, react: L.react, srcs: L.srcs },
+      target: c.tgt ? { p: c.tgt.p, label: c.tgt.label, strength: c.tgt.strength } : null, tpNote: c.tpNote || "",
+      atr: { m5: atr(x.c5, 14), m15: atr(x.c15, 14), h1: x.a1, h4: x.a4 },
+      trend: { h1: x.bias1, h4: x.tr4, strong4: !!x.strong4, rangePos: r3(x.rPos) },
+      btc: { h1: x.btc.bias1, h4: x.btc.tr4, chg: r3(x.btc.chg) }, rs: r3(x.rs), coinChg: r3(x.coinChg),
+      funding: c.funding || 0, oi: c.oi || null, oiRead: c.oiR ? c.oiR.txt : "", depth: c.depth === undefined ? null : c.depth,
+      inPlay: { rel24: r3(x.ip.rel24), rel4: r3(x.ip.rel4), volR: r3(x.ip.volR) }, sweepVol: c.volX === null ? null : r3(c.volX),
+      session: c.sess.n, breakdown: c.breakdown, rules: c.rules.map(r => ({ ok: r.ok, t: r.ok ? r.t : r.f })),
+      why: c.why, risks: c.risks, enter: c.enterTxt, invalid: c.invTxt, needRR: c.needRR,
+      size: c.size ? { qty: c.size.qty, notional: c.size.notional, risk: c.size.risk, half: !!c.size.half } : null,
+      play: c.play, riskMult: c.riskMult,
+      sweep: c.sw ? { grade: c.sw.grade, cls: c.sw.cls, depthT: r3(c.sw.depthT), depth5: r3(c.sw.depth / c.a5), depth15: r3(c.sw.depth / c.a15),
+                      rej: r3(c.sw.rej), beyond: c.sw.beyond, volX: c.sw.volX === null ? null : r3(c.sw.volX), clear: r3(c.sw.clear) } : null,
+      brk: c.bos ? { cls: c.bos.cls, swing: c.bos.swing, real: c.bos.real, prom: r3(c.bos.prom), bodyR: r3(c.bos.bodyR), bodyX: r3(c.bos.bodyX),
+                     beyond: r3(c.bos.beyond), volB: r3(c.bos.volB), speed: c.bos.speed, distL: r3(c.bos.distL) } : null,
+      retest: c.rt ? { zone: c.rt.zone ? c.rt.zone.k : null, zoneName: c.rt.zone ? c.rt.zone.n : null, tf: c.rt.tf, low: c.rt.low, rej: r3(c.rt.rej), confT: c.rt.confT } : null,
+      zones: c.zones ? c.zones.map(z => ({ k: z.k, lo: z.lo, hi: z.hi })) : null,
+      stop: { struct: c.struct.k, structPx: c.struct.p, used: c.slWhy, dist15: r3(Math.abs(c.entry - c.sl) / c.a15) },
+      range: c.type === "range" ? { lo: x.rLo, hi: x.rHi, mid: (x.rLo + x.rHi) / 2 } : null,
+      ladder: c.ladder ? { t1: c.ladder.t1, t2: c.ladder.t2, t3: c.ladder.t3, obst: c.ladder.obst, strongObst: c.ladder.strongObst, roomADR: r3(c.ladder.roomADR),
+                           leftToday: c.ladder.leftToday, lateDay: c.ladder.lateDay, adr: c.ladder.adr, reqMove: c.ladder.reqMove } : null,
+      ratings: c.ratings ? c.ratings.map(r => ({ k: r.k, n: r.n, v: r.v, t: r.t })) : null, conf: c.conf, weakest: c.weakest ? c.weakest.n : null,
+      regime: x.btc.regime || null, btcNear: { res: r3(x.btc.resD), sup: r3(x.btc.supD) }, fees: { mk: userCfg().mk, tk: userCfg().tk },
+      audit: (() => { const R = c.R, cs = R ? (R.tf === "5m" ? x.c5 : x.c15) : x.c15, i0 = R && R.S ? Math.max(0, R.S.i - 6) : cs.length - 40;
+                      return { tf: R ? R.tf : "15m", c: cs.slice(Math.max(i0, cs.length - 60)).map(k => [k.t, k.o, k.h, k.l, k.c]),
+                               sweepT: R && R.S ? R.S.sweepT : null, bosT: c.bos && c.bos.idx >= 0 ? cs[c.bos.idx] && cs[c.bos.idx].t : null,
+                               confT: c.rt && c.rt.conf ? c.rt.conf.t : null, confTf: c.rt ? c.rt.tf : null }; })()
+    };
+    const rec = { t: Date.now(), ver: SCANNER_VERSION, src: src || (BG ? "bg" : "scan"), ex: c.ex, sym: c.sym, base: c.base, dir: c.dir,
+                  type: c.type, tf: c.tf, grade: c.grade, score: c.gscore, entry: c.entry, sl: c.sl, tp: c.tp, mx: c.Mx, exp: c.exp,
+                  rr: c.rr, lt: L.primary, level: L.p, snap: JSON.stringify(snap),
+                  shadow: JSON.stringify(c.shadow.map(v => ({ k: v.k, buf: v.buf, sl: v.sl, rr: v.rr, status: "pending" })).concat(exitPlan(c))), shadowOpen: 1 };
+    const uid = DB.insert(JSON.stringify(rec));
+    if (!uid) return null;                                            // same setup already logged in the last 6h
+    rec.uid = uid;
+    if (scanNew) scanNew.push(rec);
+    if (!BG) renderPerf();
+    return rec;
   }
-  // Replays 15m candles after each signal: filled? then stop or target first? (same-candle tie counts as a loss)
-  // Replays candles after each signal: filled? then stop or target first? (same-candle tie counts as a loss)
-  // Open trades are tracked until the stop or target is hit, however long that takes.
-  function resolveSig(s, c){
-    const d = s.dir, up = d === 1;
-    if (!c.length || c[0].t > s.t){ s.res = s.res === "open" || s.res === "pending" ? s.res : "nodata"; s.gap = true; return; }
-    s.gap = false;
-    let filled = false;
-    for (const b of c.filter(k => k.t >= s.t)){
-      if (!filled){
-        if (b.t > s.exp){ s.res = "expired"; return; }
-        if (up ? b.l <= s.entry : b.h >= s.entry){
-          filled = true; s.fillT = s.fillT || b.t;
-          if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; s.endT = b.t; return; }
+
+  // ---- Outcome tracking ------------------------------------------------------------------------
+  // Each signal keeps a checkpoint (chkT). Every update only replays the closed candles after it, using the
+  // finest timeframe that reaches back that far (5m, then 15m, then 1H). Rules:
+  //  waiting : candle opens after expiry = Expired. Price reaches the "missed" level before the entry = Missed.
+  //  fill    : entry touched. Stop in the same candle = Loss (the entry is always passed on the way to the stop).
+  //            Target in the same candle as the fill = Ambiguous (order unknown).
+  //  open    : stop and target in the same candle = Ambiguous (counted separately, never as a win or a loss).
+  //  loss    : price is followed for 24h more to see if the target was reached anyway.
+  //  MFE/MAE : best and worst move from entry while open (in price and R). On the fill candle only the close
+  //            counts towards MFE because the high may have come before the fill.
+  const TF_ORDER = ["5m", "15m", "1h"], TRACK_N = 990;
+  function trackTf(age){
+    for (const tf of TF_ORDER) if (age <= (TRACK_N - 5) * TF[tf].sec * 1000) return tf;
+    return null;
+  }
+  function trackStep(s, cs, tf, now){
+    const sec = TF[tf].sec * 1000, d = s.dir, up = d === 1, risk = Math.abs(s.entry - s.sl);
+    if (!(risk > 0)) return { status: "unresolved", note: "Invalid plan (entry equals stop)" };
+    const u = {};
+    let st = s.status, chk = s.chkT || s.t;
+    let mfe = s.mfePx || 0, mae = s.maePx || 0, post = s.postMfeR || 0, tpAfter = s.tpAfterSL || 0;
+    const postUntil = s.postUntil || 0;
+    const todo = cs.filter(k => k.t >= chk && k.t + sec <= now);
+    if (!todo.length) return null;
+    if (todo[0].t - chk >= sec * 1.5){                               // exchange has no candles for part of the period
+      if (st === "pending" || st === "open") return { status: "unresolved", note: "Data gap from " + new Date(chk).toISOString(), chkT: todo[0].t };
+      return { postUntil: chk, chkT: todo[0].t };
+    }
+    const set = (k, v) => { u[k] = v; };
+    const beyond = (p, lvl) => up ? p <= lvl : p >= lvl;             // at or past a level against the trade
+    const reach = (p, lvl) => up ? p >= lvl : p <= lvl;              // at or past a level in favour of the trade
+    const lossAt = (k) => {
+      set("status", "loss"); set("R", -1); set("exitPx", s.sl); set("endT", k.t);
+      set("slType", beyond(k.c, s.sl) ? "close" : "wick"); set("postUntil", k.t + 24 * HOUR);
+      mae = Math.max(mae, risk);
+    };
+    let last = null;
+    for (const k of todo){
+      last = k;
+      const fav = up ? k.h - s.entry : s.entry - k.l, adv = up ? s.entry - k.l : k.h - s.entry;
+      if (st === "pending"){
+        if (k.t >= s.exp){ set("status", "expired"); set("endT", k.t); st = "expired"; break; }
+        if (!beyond(up ? k.l : k.h, s.entry)){
+          if (reach(up ? k.h : k.l, s.mx)){ set("status", "missed"); set("endT", k.t); st = "missed"; break; }
           continue;
         }
-        if (up ? b.h >= s.M : b.l <= s.M){ s.res = "missed"; return; }
-      } else {
-        if (up ? b.l <= s.sl : b.h >= s.sl){ s.res = "loss"; s.R = -1; s.endT = b.t; return; }
-        if (up ? b.h >= s.tp : b.l <= s.tp){ s.res = "win"; s.R = +(+s.rr).toFixed(2); s.endT = b.t; return; }
+        set("fillT", k.t);
+        if (beyond(up ? k.l : k.h, s.sl)){ lossAt(k); st = "loss"; continue; }
+        if (reach(up ? k.h : k.l, s.tp)){
+          set("status", "ambiguous"); set("Rcons", 0); set("Ropt", s.rr); set("endT", k.t);
+          set("note", "Entry and target in the same " + tf + " candle: order unknown (could be a miss or a win)");
+          st = "ambiguous"; break;
+        }
+        st = "open"; set("status", "open");
+        mae = Math.max(mae, adv, 0); mfe = Math.max(mfe, (k.c - s.entry) * d, 0);
+        continue;
       }
+      if (st === "open"){
+        const sl = beyond(up ? k.l : k.h, s.sl), tp = reach(up ? k.h : k.l, s.tp);
+        if (sl && tp){
+          set("status", "ambiguous"); set("Rcons", -1); set("Ropt", s.rr); set("endT", k.t);
+          set("note", "Stop and target in the same " + tf + " candle: order unknown"); st = "ambiguous"; break;
+        }
+        if (sl){ lossAt(k); st = "loss"; continue; }
+        if (tp){ set("status", "win"); set("R", +s.rr); set("exitPx", s.tp); set("endT", k.t); mfe = Math.max(mfe, Math.abs(s.tp - s.entry)); st = "win"; break; }
+        mfe = Math.max(mfe, fav); mae = Math.max(mae, adv);
+        continue;
+      }
+      if (st === "loss"){                                             // 24h after the stop: did it reach the target anyway?
+        const until = u.postUntil || postUntil;
+        if (k.t >= until) break;
+        if ((u.endT || s.endT) === k.t) continue;                     // the stop candle itself
+        post = Math.max(post, fav / risk);
+        if (!tpAfter && reach(up ? k.h : k.l, s.tp)){ tpAfter = k.t; set("tpAfterSL", k.t); }
+        continue;
+      }
+      break;
     }
-    if (c.length){ const last = c[c.length - 1]; s.lastPx = last.c; s.chkT = Date.now(); }
-    s.res = filled ? "open" : Date.now() > s.exp ? "expired" : "pending";
+    if (!last) return null;
+    set("mfePx", mfe); set("maePx", mae); set("mfeR", r3(mfe / risk)); set("maeR", r3(mae / risk));
+    if (st === "loss") set("postMfeR", r3(post));
+    set("lastPx", last.c); set("chkT", last.t + sec);
+    const prev = TF_ORDER.indexOf(s.resTf || "5m");
+    if (TF_ORDER.indexOf(tf) > prev) set("resTf", tf); else if (!s.resTf) set("resTf", tf);
+    return u;
   }
-  // 15m candles cover ~25h. For older trades, 1H candles (10 days) fill the part before that.
-  async function sigCandles(ex, sym, from){
-    const c15 = closedOnly(await EX[ex].klines(sym, "15m"), "15m");
-    if (!c15.length || c15[0].t <= from) return c15;
-    const c1 = closedOnly(await EX[ex].klines(sym, "1h"), "1h").filter(k => k.t + 3600000 <= c15[0].t);
-    return c1.concat(c15);
-  }
-  let perfBusy = false, perfP = null;
-  function updateSignals(){                       // one check at a time; callers share it
+  let perfP = null;
+  function updateSignals(){                                           // one check at a time; callers share it
     if (!perfP) perfP = updateSignals0().finally(() => { perfP = null; });
     return perfP;
   }
   async function updateSignals0(){
-    if (perfBusy) return;
-    const a = sigLoad(), open = a.filter(s => s.res === "pending" || s.res === "open");
-    if (!open.length){ renderPerf(); return; }
-    perfBusy = true;
+    if (!DB) return;
+    const now = Date.now(), open = jparse(DB.open(), []);
+    if (!open.length){ if (!BG) renderPerf(); return; }
     const groups = {};
     open.forEach(s => { const k = s.ex + "|" + s.sym; (groups[k] = groups[k] || []).push(s); });
+    const live = s => s.status === "pending" || s.status === "open" || (s.status === "loss" && s.postUntil > now);
+    const shOf = s => jparse(s.shadow || "[]", []);
+    const shOpen = v => v.status === "pending" || v.status === "open";
     await pool(Object.values(groups), 2, async g => {
-      try { const c = await sigCandles(g[0].ex, g[0].sym, Math.min(...g.map(s => s.t))); g.forEach(s => resolveSig(s, c)); } catch(e){}
+      const byTf = {};
+      g.forEach(s => {
+        const sh = shOf(s).filter(shOpen);
+        const oldest = Math.min(...[live(s) ? (s.chkT || s.t) : Infinity].concat(sh.map(v => v.chkT || s.t)));
+        if (!isFinite(oldest)){ DB.update(s.uid, JSON.stringify({ shadowOpen: 0 })); return; }
+        const tf = trackTf(now - oldest);
+        if (!tf){
+          if (s.status === "pending" || s.status === "open") DB.update(s.uid, JSON.stringify({ status: "unresolved", note: "Too long since the last check: candles no longer available" }));
+          else DB.update(s.uid, JSON.stringify({ postUntil: now }));
+          return;
+        }
+        (byTf[tf] = byTf[tf] || []).push(s);
+      });
+      for (const tf of Object.keys(byTf)){
+        const oldest = Math.min(...byTf[tf].map(s => Math.min(s.chkT || s.t, ...shOf(s).filter(shOpen).map(v => v.chkT || s.t))));
+        const n = Math.min(TRACK_N, Math.ceil((now - oldest) / (TF[tf].sec * 1000)) + 3);
+        let cs;
+        try { cs = closedOnly(await EX[g[0].ex].klines(g[0].sym, tf, n), tf); } catch(e){ continue; }   // network issue: retry next time
+        byTf[tf].forEach(s => {
+          const t2 = Date.now();
+          if (live(s)){ const upd = trackStep(s, cs, tf, t2); if (upd) DB.update(s.uid, JSON.stringify(upd)); }
+          // Shadow stop variants: same entry, target and expiry, different stop
+          const sh = shOf(s);
+          if (sh.some(shOpen)){
+            sh.forEach(v => {
+              if (!shOpen(v)) return;
+              if (v.kind){ simStep(s, v, cs, tf, t2); return; }          // exit models and entry variants
+              const ps = Object.assign({}, s, { sl: v.sl, rr: v.rr, status: v.status, chkT: v.chkT || s.t, fillT: v.fillT, mfePx: v.mfePx, maePx: v.maePx, endT: v.endT, postUntil: 0 });
+              const upd = trackStep(ps, cs, tf, t2);
+              if (upd) ["status", "fillT", "endT", "R", "Rcons", "Ropt", "mfeR", "maeR", "mfePx", "maePx", "chkT", "slType", "note"].forEach(k => { if (upd[k] !== undefined) v[k] = upd[k]; });
+            });
+            DB.update(s.uid, JSON.stringify({ shadow: JSON.stringify(sh), shadowOpen: sh.some(shOpen) ? 1 : 0 }));
+          }
+        });
+      }
     });
-    const fresh = sigLoad();                         // keep signals logged while this was running
-    a.forEach(s => { const f = fresh.find(z => z.t === s.t && z.sym === s.sym && z.dir === s.dir); if (f) Object.assign(f, s); });
-    sigSave(fresh); perfBusy = false; renderPerf();
+    if (!BG) renderPerf();
   }
+
+  // ---- Shadow exit models and entry variants (v4.2, paper only) ----
+  // Each variant keeps its own state (v) and is replayed on the same closed candles as the real signal.
+  // Exit models share the real entry/stop/expiry and change only how the trade is closed:
+  //   xA full to target, xB half at +1R then the rest to target, xC stop to break-even after +1R,
+  //   xD after +1R trail the stop behind the last 3 candles, xT1 full exit at T1, xF1/xF15/xF2 fixed 1R/1.5R/2R.
+  // Entry variants use the real stop/target/expiry with a different entry: eBOS (market on the break close, no retest),
+  // eLvl (limit at the level zone). R here is before fees, in each variant's own risk.
+  // Same-candle conflicts are Ambiguous; stops/targets moved by a model only apply from the next candle.
+  const EXIT_LBL = { xA: "Full to target (current)", xB: "Half at +1R, rest to target", xC: "Break-even after +1R", xD: "Trail after +1R (last 3 candles)",
+                     xT1: "Full exit at T1", xF1: "Fixed 1R", xF15: "Fixed 1.5R", xF2: "Fixed 2R" };
+  const ENTRY_LBL = { xA: "Retest-confirmed entry (current)", eBOS: "Enter on the break, no retest", eLvl: "Limit at the level zone" };
+  function exitPlan(c){
+    const risk = Math.abs(c.entry - c.sl), d = c.dir, L = [];
+    const add = (k, o) => L.push(Object.assign({ k, kind: "exit", status: "pending" }, o));
+    add("xA", {}); add("xB", { m: "half1R" }); add("xC", { m: "be1R" }); add("xD", { m: "trail1R" });
+    if (c.ladder && c.ladder.t1 && (c.ladder.t1.p - c.entry) * d > 0 && (c.ladder.t1.p - c.tp) * d < 0) add("xT1", { tp: c.ladder.t1.p });
+    [["xF1", 1], ["xF15", 1.5], ["xF2", 2]].forEach(([k, r]) => add(k, { tp: c.entry + d * r * risk }));
+    if (c.bos && c.bos.idx >= 0 && c.bos.t){
+      const bc = (c.play === "5m" ? c.x.c5 : c.x.c15)[c.bos.idx];
+      if (bc && (bc.c - c.sl) * d > 0) L.push({ k: "eBOS", kind: "entry", entry: bc.c, status: "open", fillT: c.bos.t, chkT: c.bos.t });
+    }
+    const z = c.zones && c.zones.find(q => q.k === "lvl");
+    if (z && (z.mid - c.sl) * d > 0 && (c.tp - z.mid) * d > 0) L.push({ k: "eLvl", kind: "entry", entry: z.mid, status: "pending" });
+    return L;
+  }
+  function simStep(s, v, cs, tf, now){
+    const sec = TF[tf].sec * 1000, d = s.dir, up = d === 1;
+    const entry = v.entry !== undefined ? v.entry : s.entry, risk = Math.abs(entry - s.sl);
+    if (!(risk > 0)){ v.status = "unresolved"; v.note = "invalid plan"; return; }
+    const tp = v.tp !== undefined ? v.tp : s.tp, tpR = (tp - entry) * d / risk, oneR = entry + d * risk;
+    const chk = v.chkT || s.t;
+    const todo = cs.filter(k => k.t >= chk && k.t + sec <= now);
+    if (!todo.length) return;
+    if (todo[0].t - chk >= sec * 1.5){ v.status = "unresolved"; v.note = "data gap"; return; }
+    const beyond = (p, l) => up ? p <= l : p >= l, reach = (p, l) => up ? p >= l : p <= l;
+    let stop = v.cur !== undefined ? v.cur : s.sl;
+    const lows = v.lows || [];
+    const done = (st, R) => { v.status = st; if (R !== undefined) v.R = +(+R).toFixed(3); };
+    for (const k of todo){
+      v.chkT = k.t + sec;
+      if (v.status === "pending"){
+        if (k.t >= s.exp){ done("expired"); v.endT = k.t; break; }
+        if (!beyond(up ? k.l : k.h, entry)){ if (s.mx && reach(up ? k.h : k.l, s.mx)){ done("missed"); v.endT = k.t; break; } continue; }
+        v.fillT = k.t;
+        if (beyond(up ? k.l : k.h, s.sl)){ done("loss", -1); v.endT = k.t; break; }
+        if (reach(up ? k.h : k.l, tp)){ done("ambiguous"); v.Rcons = 0; v.Ropt = +tpR.toFixed(3); v.endT = k.t; break; }
+        v.status = "open"; lows.push(up ? k.l : k.h);
+        if (!v.r1 && reach(up ? k.c : k.c, oneR)) v.r1 = true;
+        continue;
+      }
+      if (v.status !== "open") break;
+      const stopR = (stop - entry) * d / risk, bank = v.part ? 0.5 : 0, w = v.part ? 0.5 : 1;
+      const hitS = beyond(up ? k.l : k.h, stop), hitT = reach(up ? k.h : k.l, tp);
+      const hit1 = v.m === "half1R" && !v.part && reach(up ? k.h : k.l, oneR);
+      if (hitS && (hitT || hit1)){
+        done("ambiguous"); v.endT = k.t;
+        v.Rcons = +(bank + w * stopR).toFixed(3);
+        v.Ropt = +(hitT ? (hit1 ? 0.5 + 0.5 * tpR : bank + w * tpR) : 0.5 + 0.5 * stopR).toFixed(3);
+        break;
+      }
+      if (hitS){ const R = bank + w * stopR; done(R > 0.001 ? "win" : R < -0.001 ? "loss" : "breakeven", R); v.endT = k.t; break; }
+      if (hitT){ done("win", (hit1 ? 0.5 + 0.5 * tpR : bank + w * tpR)); v.endT = k.t; break; }
+      if (hit1) v.part = true;
+      if (!v.r1 && reach(up ? k.h : k.l, oneR)) v.r1 = true;
+      if (v.r1 && v.m === "be1R") stop = up ? Math.max(stop, entry) : Math.min(stop, entry);
+      lows.push(up ? k.l : k.h); if (lows.length > 3) lows.shift();
+      if (v.r1 && v.m === "trail1R" && lows.length === 3){ const tr = up ? Math.min(...lows) : Math.max(...lows); stop = up ? Math.max(stop, tr) : Math.min(stop, tr); }
+    }
+    v.cur = stop; v.lows = lows;
+  }
+  // Results of one variant across signals (breakeven counts as a closed trade at 0R)
+  function varStats(vs){
+    const cl = vs.filter(v => v.status === "win" || v.status === "loss" || v.status === "breakeven");
+    const tot = cl.reduce((x, v) => x + (v.status === "loss" && v.R === undefined ? -1 : (v.R || 0)), 0);
+    const w = cl.filter(v => v.status === "win").length;
+    return { closed: cl.length, wr: cl.length ? w / cl.length * 100 : null, exp: cl.length ? tot / cl.length : null, total: tot,
+             amb: vs.filter(v => v.status === "ambiguous").length, open: vs.filter(v => v.status === "open" || v.status === "pending").length };
+  }
+  // ---- Scanner performance dashboard -----------------------------------------------------------
   const RES = { win: ["Win", "pos"], loss: ["Loss", "neg"], open: ["In trade", ""], pending: ["Waiting for entry", ""], missed: ["Missed (no retest)", "k"],
-                expired: ["Expired (no fill)", "k"], timeout: ["No result", "k"], nodata: ["No data", "k"] };
+                expired: ["Expired (no fill)", "k"], ambiguous: ["Ambiguous", "warn"], unresolved: ["Unresolved (data gap)", "k"] };
+  const PKEY = "mwPerfView";
+  const openD = new Set(), openA = new Set();
+  const pv = Object.assign({ range: "7d", from: "", to: "", arch: false, allVer: false, page: 1 }, jparse(localStorage.getItem(PKEY) || "{}", {}));
+  const savePv = () => { try { localStorage.setItem(PKEY, JSON.stringify({ range: pv.range, from: pv.from, to: pv.to, arch: pv.arch, allVer: pv.allVer })); } catch(e){} };
+  function rangeOf(){
+    const d0 = new Date(); d0.setHours(0, 0, 0, 0);
+    const day = 86400000, t0 = d0.getTime(), far = Date.now() + day;
+    switch (pv.range){
+      case "today": return [t0, far, "Today"];
+      case "yday": return [t0 - day, t0, "Yesterday"];
+      case "7d": return [t0 - 6 * day, far, "Last 7 days"];
+      case "30d": return [t0 - 29 * day, far, "Last 30 days"];
+      case "custom": {
+        const a = pv.from ? new Date(pv.from + "T00:00:00").getTime() : 0, b = pv.to ? new Date(pv.to + "T00:00:00").getTime() + day : far;
+        return [a, b, "Custom"];
+      }
+      default: return [0, far, "All time"];
+    }
+  }
+  const dt = ts => { const d = new Date(ts); return String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hhmm(ts); };
+  const fR = v => v === null || v === undefined || !isFinite(v) ? "-" : (v >= 0 ? "+" : "") + (+v).toFixed(2) + "R";
+  function stats(arr){
+    const closed = arr.filter(s => s.status === "win" || s.status === "loss");
+    const wins = closed.filter(s => s.status === "win"), losses = closed.filter(s => s.status === "loss");
+    const sumW = wins.reduce((a, s) => a + (s.R || 0), 0), sumL = -losses.reduce((a, s) => a + (s.R || 0), 0);
+    const amb = arr.filter(s => s.status === "ambiguous");
+    const filled = arr.filter(s => s.fillT);
+    let streak = 0, worst = 0, eq = 0, peak = 0, dd = 0;
+    closed.slice().sort((a, b) => (a.endT || a.t) - (b.endT || b.t)).forEach(s => {
+      streak = s.status === "loss" ? streak + 1 : 0; worst = Math.max(worst, streak);
+      eq += s.R || 0; peak = Math.max(peak, eq); dd = Math.max(dd, peak - eq);
+    });
+    return { n: arr.length, closed: closed.length, wins: wins.length, losses: losses.length, filled: filled.length,
+             wr: closed.length ? wins.length / closed.length * 100 : null, exp: closed.length ? (sumW - sumL) / closed.length : null,
+             total: sumW - sumL, pf: sumL > 0 ? sumW / sumL : (sumW > 0 ? Infinity : null), worst, dd,
+             amb: amb.length, ambLo: amb.reduce((a, s) => a + (s.Rcons || 0), 0), ambHi: amb.reduce((a, s) => a + (s.Ropt || 0), 0) };
+  }
+  const sampleTag = n => n < 30 ? '<span class="stag early">Early sample</span>' : n < 100 ? '<span class="stag dev">Developing</span>' : '<span class="stag est">Established sample</span>';
   function renderPerf(){
-    const box = $("perfBody"); if (!box) return;
-    const a = sigLoad();
-    if (!a.length){ box.innerHTML = '<div class="empty">No signals logged yet. Every Ready setup the scanner shows is recorded here and checked against later price action.</div>'; return; }
-    const st = arr => { const t = arr.filter(s => s.res === "win" || s.res === "loss"), w = t.filter(s => s.res === "win").length, R = t.reduce((x, s) => x + (s.R || 0), 0);
-                        return { n: arr.length, t: t.length, w, wr: t.length ? w / t.length * 100 : null, avg: t.length ? R / t.length : null, R }; };
-    const all = st(a), cnt = k => a.filter(s => s.res === k).length;
-    const box2 = (k, v, cls) => '<div class="box"><div class="k">' + k + '</div><div class="v ' + (cls || "") + '">' + v + '</div></div>';
-    let h = '<div class="perfgrid">' +
-      box2("Signals", all.n) + box2("Closed trades", all.t + " <small class='k'>(" + cnt("open") + " open)</small>") +
-      box2("Win rate", all.wr === null ? "-" : all.wr.toFixed(0) + "%", all.wr === null ? "" : all.wr >= 40 ? "pos" : "neg") +
-      box2("Avg R per trade", all.avg === null ? "-" : (all.avg >= 0 ? "+" : "") + all.avg.toFixed(2) + "R", all.avg === null ? "" : all.avg >= 0 ? "pos" : "neg") + '</div>' +
-      '<div class="k" style="margin-top:6px">Not filled: ' + cnt("missed") + ' missed, ' + cnt("expired") + ' expired, ' + cnt("pending") + ' waiting.' +
-      (all.t < 30 ? ' Fewer than 30 closed trades: treat these numbers as early, not proof.' : '') + '</div>';
+    const box = $("perfBody"); if (!box || BG) return;
+    if (!DB){ box.innerHTML = '<div class="empty">Scanner history is stored in the Manner Wein Android app.</div>'; return; }
+    const [from, to, label] = rangeOf();
+    const all0 = jparse(DB.list(from, to, pv.arch ? 2 : 0), []);
+    const a = pv.allVer ? all0 : all0.filter(s => s.ver === SCANNER_VERSION);
+    const older = all0.length - a.length;
+    const tot = DB.count();
+    const chip = (k, t) => '<button type="button" class="pchip' + (pv.range === k ? ' on' : '') + '" data-range="' + k + '">' + t + '</button>';
+    let h = '<div class="pfilters">' + chip("today", "Today") + chip("yday", "Yesterday") + chip("7d", "7 days") + chip("30d", "30 days") + chip("all", "All") + chip("custom", "Custom") + '</div>' +
+      (pv.range === "custom" ? '<div class="pcustom"><label>From <input type="date" id="pvFrom" value="' + esc(pv.from) + '"></label><label>To <input type="date" id="pvTo" value="' + esc(pv.to) + '"></label></div>' : '') +
+      '<label class="switch pv-arch"><input type="checkbox" id="pvArch"' + (pv.arch ? ' checked' : '') + '><span></span><em>Include archived</em></label>' +
+      '<label class="switch pv-arch"><input type="checkbox" id="pvVer"' + (pv.allVer ? ' checked' : '') + '><span></span><em>Include older scanner versions</em></label>' +
+      '<div class="k" style="margin:6px 0 10px">' + esc(label) + ': ' + a.length + ' signal' + (a.length === 1 ? '' : 's') + (pv.allVer ? ' (all versions)' : ' from scanner v' + SCANNER_VERSION + (older ? ', ' + older + ' from older versions hidden' : '')) +
+      ' &middot; ' + tot + ' stored on this phone</div>';
+    if (!a.length){ box.innerHTML = h + '<div class="empty">No signals in this period. Every Ready setup is saved here permanently and followed until it ends.</div>'; return; }
+    const S = stats(a), cnt = k => a.filter(s => s.status === k).length;
+    const b2 = (k, v, cls) => '<div class="box"><div class="k">' + k + '</div><div class="v ' + (cls || "") + '">' + v + '</div></div>';
+    h += '<div class="perfgrid">' +
+      b2("Closed (win / loss)", S.closed + ' <small class="k">(' + S.wins + ' / ' + S.losses + ')</small>') +
+      b2("Win rate", S.wr === null ? "-" : S.wr.toFixed(0) + "%", S.wr === null ? "" : S.wr >= 40 ? "pos" : "neg") +
+      b2("Expectancy", fR(S.exp), S.exp === null ? "" : S.exp >= 0 ? "pos" : "neg") +
+      b2("Total", fR(S.closed ? S.total : null), S.total >= 0 ? "pos" : "neg") +
+      b2("Profit factor", S.pf === null ? "-" : S.pf === Infinity ? "&infin;" : S.pf.toFixed(2)) +
+      b2("Worst losing run", S.worst + " in a row") +
+      b2("Max drawdown", S.closed ? "-" + S.dd.toFixed(2) + "R" : "-") +
+      b2("Ambiguous", S.amb ? S.amb + ' <small class="k">(' + fR(S.ambLo) + ' to ' + fR(S.ambHi) + ')</small>' : "0") + '</div>' +
+      '<div class="k" style="margin-top:6px">' + sampleTag(S.closed) + ' Not filled: ' + cnt("missed") + ' missed, ' + cnt("expired") + ' expired. Still tracking: ' +
+      cnt("pending") + ' waiting, ' + cnt("open") + ' open. ' + (cnt("unresolved") ? cnt("unresolved") + ' unresolved (data gap). ' : '') +
+      'Ambiguous and unresolved signals are left out of win rate and expectancy.</div>';
+    // Excursion: how far trades went for and against before they ended
+    const filled = a.filter(s => s.fillT && s.status !== "open");
+    if (filled.length){
+      const pctR = r => Math.round(filled.filter(s => (s.mfeR || 0) >= r || s.status === "win" && s.rr >= r).length / filled.length * 100);
+      const W = a.filter(s => s.status === "win"), Lo = a.filter(s => s.status === "loss");
+      const avg = (arr, f) => arr.length ? arr.reduce((x, s) => x + (f(s) || 0), 0) / arr.length : null;
+      const wick = Lo.filter(s => s.slType === "wick").length, after = Lo.filter(s => s.tpAfterSL).length;
+      const lateDone = Lo.filter(s => !(s.postUntil > Date.now())).length;
+      h += '<h3>How far trades moved <button type="button" class="ibtn" data-info="infoExc" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+        '<p class="note info-pop" id="infoExc">MFE is the best move in your favour after the fill, MAE the worst move against you, both in R (1R = entry to stop). ' +
+        'These show whether stops are too tight (winners that went close to -1R first, losers that later reached the target) or targets too far (losers that reached +1R first).</p>' +
+        '<div class="perfgrid">' +
+        b2("Reached +0.5R / +1R", pctR(0.5) + "% / " + pctR(1) + "%") + b2("Reached +1.5R / +2R", pctR(1.5) + "% / " + pctR(2) + "%") +
+        b2("Winners: avg worst dip", W.length ? "-" + avg(W, s => s.maeR).toFixed(2) + "R" : "-") +
+        b2("Losers: avg best move first", Lo.length ? fR(avg(Lo, s => s.mfeR)) : "-") +
+        b2("Stops: wick / close", Lo.length ? wick + " / " + (Lo.length - wick) : "-") +
+        b2("Stopped, then hit TP within 24h", Lo.length ? after + " of " + Lo.length + (lateDone < Lo.length ? ' <small class="k">(' + (Lo.length - lateDone) + ' still watching)</small>' : '') : "-") +
+        '</div>';
+    }
+    // Shadow stop variants: same signals, different stop distance (position size adjusts, so R is comparable)
+    const shRows = a.map(s => jparse(s.shadow || "[]", [])).filter(v => v.length);
+    if (shRows.length){
+      const keys = ["s0", "s50", "s75", "s100"], lab = { s0: "Structure only", s50: "+0.5 x 15m ATR", s75: "+0.75 x 15m ATR", s100: "+1.0 x 15m ATR" };
+      h += '<h3>Stop distance test <button type="button" class="ibtn" data-info="infoShadow" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+        '<p class="note info-pop" id="infoShadow">Every signal is also followed with four alternative stops beyond the same structure (no alerts, paper only). Entry, target and expiry are identical; only the stop and therefore the R:R change. ' +
+        'Because position size shrinks with a wider stop, results in R compare like for like. The live stop is the +0.5 version, widened to at least 1 x 15m ATR when needed.</p>' +
+        '<div class="tablewrap ptab"><table><thead><tr><th>Stop</th><th>Closed</th><th>Win %</th><th>Expectancy</th><th>Avg R:R</th></tr></thead><tbody>' +
+        keys.map(k => {
+          const vs = shRows.map(r => r.find(v => v.k === k)).filter(Boolean).map(v => Object.assign({}, v, { R: v.status === "win" ? v.rr : v.status === "loss" ? -1 : v.R }));
+          const st = stats(vs), avgRR = vs.length ? vs.reduce((x, v) => x + v.rr, 0) / vs.length : null;
+          return '<tr><td>' + lab[k] + '</td><td>' + st.closed + '</td><td>' + (st.wr === null ? "-" : st.wr.toFixed(0) + "%") + '</td><td class="' + (st.exp === null ? "" : st.exp >= 0 ? "pos" : "neg") + '">' +
+            fR(st.exp) + '</td><td>' + (avgRR === null ? "-" : "1:" + avgRR.toFixed(2)) + '</td></tr>';
+        }).join("") + '</tbody></table></div>';
+    }
+    // Exit models and entry variants (paper only), and the validation summary
+    const varRows = (keys, lbl, src) => keys.map(k => {
+      const vs = a.map(s => (src === "stop" ? jparse(s.shadow || "[]", []).find(v => v.k === k) : jparse(s.shadow || "[]", []).find(v => v.k === k))).filter(Boolean)
+        .map(v => v.kind ? v : Object.assign({}, v, { R: v.status === "win" ? v.rr : v.status === "loss" ? -1 : v.R }));
+      return { k, n: lbl[k], st: varStats(vs) };
+    }).filter(r => r.st.closed + r.st.open + r.st.amb > 0);
+    const tbl = (rows, cur) => '<div class="tablewrap ptab"><table><thead><tr><th></th><th>Closed</th><th>Win %</th><th>Expectancy</th><th>Total</th></tr></thead><tbody>' +
+      rows.map(r => '<tr' + (r.k === cur ? ' class="curv"' : '') + '><td>' + esc(r.n) + (r.st.amb ? ' <small class="k">(' + r.st.amb + ' ambiguous)</small>' : '') + '</td><td>' + r.st.closed +
+        (r.st.open ? ' <small class="k">+' + r.st.open + ' open</small>' : '') + '</td><td>' + (r.st.wr === null ? "-" : r.st.wr.toFixed(0) + "%") + '</td><td class="' +
+        (r.st.exp === null ? "" : r.st.exp >= 0 ? "pos" : "neg") + '">' + fR(r.st.exp) + '</td><td>' + (r.st.closed ? fR(r.st.total) : "-") + '</td></tr>').join("") + '</tbody></table></div>';
+    const exRows = varRows(["xA", "xB", "xC", "xD", "xT1", "xF1", "xF15", "xF2"], EXIT_LBL);
+    if (exRows.length){
+      h += '<h3>Exit test <button type="button" class="ibtn" data-info="infoExit" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+        '<p class="note info-pop" id="infoExit">Each signal is also replayed with different ways of taking profit (paper only, no alerts): same entry, stop and expiry. ' +
+        'Results are in R before fees. A stop moved by a model (break-even, trailing) only counts from the next candle. Use this to see whether partial profits, break-even or trailing would have helped.</p>' + tbl(exRows, "xA");
+    }
+    const enRows = varRows(["xA", "eBOS", "eLvl"], ENTRY_LBL);
+    if (enRows.length > 1){
+      h += '<h3>Entry test <button type="button" class="ibtn" data-info="infoEntry" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+        '<p class="note info-pop" id="infoEntry">Same stop, target and expiry with a different entry: the current retest-confirmed entry, entering straight on the break (no retest), or a limit order at the level zone. R before fees, in each entry\'s own risk.</p>' + tbl(enRows, "xA");
+    }
+    // Validation: which variant leads, and is there enough data to act on it? Suggestions only, nothing changes automatically.
+    const stRows = varRows(["s0", "s50", "s75", "s100"], { s0: "Structure only", s50: "+0.5 x 15m ATR (current)", s75: "+0.75 x 15m ATR", s100: "+1.0 x 15m ATR" }, "stop");
+    const verdict = (name, rows, cur) => {
+      const c0 = rows.find(r => r.k === cur), ok = rows.filter(r => r.st.closed >= 30 && r.st.exp !== null);
+      if (!c0 || c0.st.closed < 30) return '<li><b>' + name + ':</b> not enough data yet (' + (c0 ? c0.st.closed : 0) + ' of 30 closed trades for the current rule).</li>';
+      const best = ok.sort((p, q) => q.st.exp - p.st.exp)[0];
+      if (!best || best.k === cur) return '<li><b>' + name + ':</b> the current rule is leading (' + fR(c0.st.exp) + ' per trade over ' + c0.st.closed + ' trades).</li>';
+      const gap = best.st.exp - c0.st.exp;
+      return '<li><b>' + name + ':</b> <span class="' + (gap >= 0.15 ? "pos" : "") + '">' + esc(best.n) + '</span> leads by ' + fR(gap) + ' per trade (' + best.st.closed + ' vs ' + c0.st.closed + ' trades). ' +
+        (gap >= 0.15 && best.st.closed >= 100 ? 'Consistent enough to consider changing the rule in the next scanner version.' : 'Keep collecting before changing anything.') + '</li>';
+    };
+    if (stRows.length || exRows.length){
+      h += '<h3>Validation <button type="button" class="ibtn" data-info="infoVal" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+        '<p class="note info-pop" id="infoVal">Compares each paper test with the rule the scanner uses now. A variant is only called out after 30 closed trades, and only suggested as a rule change after 100 trades and a lead of at least +0.15R per trade. ' +
+        'Nothing changes automatically: rule changes go into a new scanner version so old and new results are never mixed.</p><ul class="vlist">' +
+        verdict("Stop distance", stRows, "s50") + verdict("Exit", exRows, "xA") + (enRows.length > 1 ? verdict("Entry", enRows, "xA") : "") + '</ul>';
+    }
+    // Breakdown
     const grp = (title, key, name) => {
-      const keys = [...new Set(a.map(key))];
-      return '<tr class="gh"><td colspan="4">' + title + '</td></tr>' + keys.map(k => {
-        const s = st(a.filter(x => key(x) === k));
-        return '<tr><td>' + esc(name(k)) + '</td><td>' + s.t + '</td><td>' + (s.wr === null ? "-" : s.wr.toFixed(0) + "%") + '</td><td class="' + (s.avg === null ? "" : s.avg >= 0 ? "pos" : "neg") + '">' +
-               (s.avg === null ? "-" : (s.avg >= 0 ? "+" : "") + s.avg.toFixed(2) + "R") + '</td></tr>';
+      const keys = [...new Set(a.map(key))].filter(k => k !== undefined && k !== null && k !== "");
+      return '<tr class="gh"><td colspan="5">' + title + '</td></tr>' + keys.map(k => {
+        const s = stats(a.filter(x => key(x) === k));
+        return '<tr><td>' + esc(name(k)) + '</td><td>' + s.closed + '</td><td>' + (s.wr === null ? "-" : s.wr.toFixed(0) + "%") + '</td><td class="' +
+          (s.exp === null ? "" : s.exp >= 0 ? "pos" : "neg") + '">' + fR(s.exp) + '</td><td>' + (s.closed < 30 ? '<span class="k">early</span>' : '') + '</td></tr>';
       }).join("");
     };
-    h += '<div class="tablewrap ptab"><table><thead><tr><th></th><th>Trades</th><th>Win %</th><th>Avg R</th></tr></thead><tbody>' +
-      grp("Grade", s => s.grade, k => "Grade " + k) + grp("Setup type", s => s.type, k => TYPE[k] || k) + grp("Trigger", s => s.tf, k => k + " trigger") +
-      grp("Level type", s => (LT[s.lt] || { g: s.lt }).g, k => k) + grp("Direction", s => s.dir, k => k === 1 ? "Long" : "Short") + '</tbody></table></div>';
-    const live = a.filter(s => s.res === "open" || s.res === "pending");
+    const snapOf = s => jparse(s.snap || "{}", {});
+    h += '<h3>Breakdown</h3><div class="tablewrap ptab"><table><thead><tr><th></th><th>Closed</th><th>Win %</th><th>Expectancy</th><th></th></tr></thead><tbody>' +
+      grp("Grade", s => s.grade, k => "Grade " + k) + grp("Setup type", s => s.type, k => TYPE[k] || k) + grp("Playbook", s => s.tf, k => PLAY[k] || k + " trigger") +
+      grp("Level type", s => (LT[s.lt] || { g: s.lt }).g, k => k) + grp("Direction", s => s.dir, k => k === 1 ? "Long" : "Short") +
+      grp("Session", s => snapOf(s).session, k => k) + grp("Exchange", s => s.ex, k => EX[k] ? EX[k].name : k) +
+      grp("Sweep quality", s => (snapOf(s).sweep || {}).grade, k => cap1(k)) + grp("Break quality", s => (snapOf(s).brk || {}).cls, k => cap1(k)) +
+      grp("Entry model", s => (snapOf(s).retest || {}).zoneName, k => k) + grp("Retest confirmed on", s => (snapOf(s).retest || {}).tf, k => k + " candle") +
+      grp("Stop set by", s => (snapOf(s).stop || {}).struct, k => cap1(k)) +
+      grp("Weakest rating", s => snapOf(s).weakest, k => k) +
+      grp("Confidence", s => { const v = snapOf(s).conf; return v === undefined || v === null ? null : v >= 70 ? "70+" : v >= 55 ? "55-69" : "50-54"; }, k => k) +
+      grp("Level strength", s => { const v = (snapOf(s).level || {}).strength; return v === undefined ? null : v >= 14 ? "14-20 strong" : v >= 10 ? "10-13 solid" : "below 10"; }, k => k) +
+      grp("BTC vs trade", s => { const b = (snapOf(s).btc || {}).h1; return b === undefined ? null : b === s.dir ? "BTC aligned" : b === 0 ? "BTC neutral" : "BTC opposed"; }, k => k) +
+      grp("Open interest", s => { const r = snapOf(s).oiRead; return !r ? "Not available" : /backing|closing, not new/.test(r) ? "Supportive" : /may fade|against you/.test(r) ? "Conflicting" : "Neutral"; }, k => k) +
+      grp("Funding", s => { const f = (snapOf(s).funding || 0) * s.dir; return f > 0.0005 ? "Crowded on your side" : f < -0.0003 ? "Crowded against you" : "Neutral"; }, k => k) +
+      grp("Volume", s => { const v = (snapOf(s).inPlay || {}).rel24; return v === undefined ? null : v >= 2 ? "2x+ normal" : v >= 1.5 ? "1.5-2x" : "1.2-1.5x"; }, k => k) +
+      grp("Regime: BTC", s => (snapOf(s).regime || {}).trend, k => k) + grp("Regime: volatility", s => (snapOf(s).regime || {}).vol, k => k) +
+      grp("Regime: alts", s => (snapOf(s).regime || {}).alts, k => k) + grp("Regime: funding", s => (snapOf(s).regime || {}).fund, k => k) +
+      grp("Target type", s => { const l = snapOf(s).ladder; return !l ? null : /open air/.test(snapOf(s).tpNote || "") ? "Open air 2R" : /midpoint/.test(snapOf(s).tpNote || "") ? "Range midpoint" : /2R/.test(snapOf(s).tpNote || "") ? "2R (weak levels)" : "T2 level"; }, k => k) +
+      '</tbody></table></div>';
+    // Signals
     const row = s => {
-      const r = RES[s.res] || [s.res, ""];
-      const d = new Date(s.t);
-      const pnl = s.res === "open" && isFinite(s.lastPx) ? ((s.lastPx - s.entry) * s.dir / Math.abs(s.entry - s.sl)) : null;
-      return '<tr><td>' + String(d.getDate()).padStart(2, "0") + "/" + String(d.getMonth() + 1).padStart(2, "0") + " " + hhmm(s.t) + '</td><td><b>' + esc(s.base) + '</b> ' + (s.dir === 1 ? "L" : "S") + ' &middot; ' + s.grade +
-             '</td><td><small>E ' + fmtPx(s.entry) + '<br>SL ' + fmtPx(s.sl) + ' &middot; TP ' + fmtPx(s.tp) + '</small></td><td class="' + r[1] + '">' + r[0] +
-             (s.res === "win" ? " +" + s.R + "R" : s.res === "loss" ? " -1R" : "") +
-             (pnl !== null ? '<br><small class="' + (pnl >= 0 ? "pos" : "neg") + '">now ' + (pnl >= 0 ? "+" : "") + pnl.toFixed(2) + 'R</small>' : "") +
-             (s.res === "pending" ? '<br><small class="k">until ' + hhmm(s.exp) + '</small>' : "") + '</td></tr>';
+      const r = RES[s.status] || [s.status, ""];
+      const res = s.status === "win" || s.status === "loss" ? " " + fR(s.R) : s.status === "ambiguous" ? " " + fR(s.Rcons) + " to " + fR(s.Ropt) : "";
+      const live = s.status === "open" && isFinite(s.lastPx) ? '<br><small class="' + ((s.lastPx - s.entry) * s.dir >= 0 ? "pos" : "neg") + '">now ' +
+        fR((s.lastPx - s.entry) * s.dir / Math.abs(s.entry - s.sl)) + '</small>' : s.status === "pending" ? '<br><small class="k">until ' + hhmm(s.exp) + '</small>' : '';
+      return '<tr class="sigrow" data-uid="' + esc(s.uid) + '"><td>' + dt(s.t) + '</td><td><b>' + esc(s.base) + '</b> ' + (s.dir === 1 ? "L" : "S") + ' &middot; ' + esc(s.grade) +
+        '<br><small class="k">' + esc(TYPE[s.type] || s.type) + ', ' + esc(s.tf || "") + '</small></td><td><small>E ' + fmtPx(s.entry) + '<br>SL ' + fmtPx(s.sl) + ' &middot; TP ' + fmtPx(s.tp) +
+        '</small></td><td class="' + r[1] + '">' + r[0] + res + live + (s.archived ? '<br><small class="k">archived</small>' : '') + '</td></tr>' +
+        '<tr class="sigdtl" data-for="' + esc(s.uid) + '" hidden><td colspan="4"></td></tr>';
     };
-    if (live.length) h += '<h3>Being tracked (' + live.length + ')</h3><div class="tablewrap"><table><tbody>' + live.slice().reverse().map(row).join("") + '</tbody></table></div>';
-    h += '<h3>Recent signals</h3><div class="tablewrap"><table><tbody>' + a.slice(-10).reverse().map(row).join("") + '</tbody></table></div>';
+    const track = a.filter(s => s.status === "pending" || s.status === "open");
+    if (track.length) h += '<h3>Being tracked (' + track.length + ')</h3><div class="tablewrap ptab"><table><tbody>' + track.map(row).join("") + '</tbody></table></div>';
+    const shown = a.slice(0, pv.page * 25);
+    h += '<h3>All signals in this period (' + a.length + ')</h3><div class="tablewrap ptab"><table><tbody>' + shown.map(row).join("") + '</tbody></table></div>' +
+      (a.length > shown.length ? '<button type="button" class="btn" id="pvMore">Show more (' + (a.length - shown.length) + ' left)</button>' : '');
     box.innerHTML = h;
+    box._rows = a;
+    // Keep open details and audits open when the list refreshes (scans re-render it)
+    box.querySelectorAll(".sigrow").forEach(tr => {
+      if (!openD.has(tr.dataset.uid)) return;
+      const d = tr.nextElementSibling, s = a.find(x => x.uid === tr.dataset.uid); if (!d || !s || !d.hidden) return;
+      d.firstElementChild.innerHTML = sigDetail(s); d.hidden = false;
+      if (openA.has(s.uid)){ const ab = d.querySelector(".auditbtn"), bx = d.querySelector(".auditbox"); if (ab && bx){ bx.innerHTML = auditHtml(s); bx.hidden = false; ab.textContent = "Hide audit"; } }
+    });
   }
-  $("btnPerfUpd").addEventListener("click", () => { toast("Checking signal results..."); updateSignals(); });
-  $("btnPerfClr").addEventListener("click", () => { if (confirm("Delete all logged scanner signals?")){ sigSave([]); renderPerf(); } });
+  // ---- Audit view (v4.2): the candles, levels and calculations behind one signal ----
+  function auditChart(p, s){
+    const A = p.audit; if (!A || !A.c || !A.c.length) return '<div class="k">No candle snapshot stored for this signal.</div>';
+    const W = 640, H = 300, padL = 6, padR = 64, padT = 10, padB = 18;
+    const lines = [["Entry", s.entry, "#e8e3ff"], ["SL", s.sl, "#ff5c8a"], ["TP", s.tp, "#34e5a8"], ["Level", p.level && p.level.p, "#ffb84d"]];
+    if (p.ladder){ ["t1", "t3"].forEach(k => { if (p.ladder[k]) lines.push([k.toUpperCase(), p.ladder[k].p, "#22d3ee"]); }); }
+    const ys = A.c.flatMap(k => [k[2], k[3]]).concat(lines.map(l => l[1]).filter(v => isFinite(v)));
+    let lo = Math.min(...ys), hi = Math.max(...ys); const pad = (hi - lo) * 0.04 || 1; lo -= pad; hi += pad;
+    const n = A.c.length, cw = (W - padL - padR) / n, Y = v => padT + (hi - v) / (hi - lo) * (H - padT - padB);
+    let g = '';
+    lines.forEach(([t, v, col]) => { if (!isFinite(v)) return; const y = Y(v).toFixed(1);
+      g += '<line x1="' + padL + '" x2="' + (W - padR) + '" y1="' + y + '" y2="' + y + '" stroke="' + col + '" stroke-dasharray="4 3" stroke-width="1"/>' +
+           '<text x="' + (W - padR + 3) + '" y="' + (+y + 4) + '" fill="' + col + '" font-size="10">' + t + ' ' + fmtPx(v) + '</text>'; });
+    const mark = {}; [["S", A.sweepT], ["B", A.bosT], ["R", A.confT]].forEach(([t, ts]) => { if (!ts) return;
+      let i = A.c.findIndex((k, j) => ts >= k[0] && (j === n - 1 || ts < A.c[j + 1][0])); if (i < 0) i = ts < A.c[0][0] ? 0 : n - 1; mark[i] = (mark[i] || "") + t; });
+    A.c.forEach((k, i) => {
+      const x = padL + i * cw + cw / 2, upC = k[4] >= k[1], col = upC ? "#34e5a8" : "#ff5c8a";
+      g += '<line x1="' + x.toFixed(1) + '" x2="' + x.toFixed(1) + '" y1="' + Y(k[2]).toFixed(1) + '" y2="' + Y(k[3]).toFixed(1) + '" stroke="' + col + '"/>' +
+           '<rect x="' + (x - cw * 0.35).toFixed(1) + '" width="' + Math.max(1, cw * 0.7).toFixed(1) + '" y="' + Y(Math.max(k[1], k[4])).toFixed(1) + '" height="' +
+           Math.max(1, Math.abs(Y(k[1]) - Y(k[4]))).toFixed(1) + '" fill="' + col + '"/>';
+      if (mark[i]) g += '<text x="' + x.toFixed(1) + '" y="' + (H - 4) + '" fill="#ffb84d" font-size="10" text-anchor="middle">' + mark[i] + '</text>';
+    });
+    return '<svg class="auditsvg" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none">' + g + '</svg>' +
+      '<div class="k" style="font-size:11px">' + esc(A.tf) + ' candles from ' + dt(A.c[0][0]) + ' &middot; S = sweep, B = break, R = retest confirmation' + (A.confTf && A.confTf !== A.tf ? ' (confirmed on ' + esc(A.confTf) + ')' : '') + '</div>';
+  }
+  function auditHtml(s){
+    const p = jparse(s.snap || "{}", {}), tr = (k, v) => '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
+    const risk = Math.abs(s.entry - s.sl), fees = p.fees || {};
+    const rat = (p.ratings || []).map(r => esc(r.n) + " " + r.v + "/100 <small class='k'>(" + esc(r.t) + ")</small>").join("<br>");
+    const lad = p.ladder || {}, lt = t => t ? fmtPx(t.p) + " " + esc(t.label) + " (" + t.R + "R)" : "-";
+    const sh = jparse(s.shadow || "[]", []);
+    const vline = v => esc(EXIT_LBL[v.k] || ENTRY_LBL[v.k] || ("Stop +" + v.buf + " ATR")) + ": " + ((RES[v.status] || [v.status])[0]) +
+      (v.R !== undefined && v.status !== "ambiguous" ? " " + fR(v.R) : v.status === "win" && v.rr ? " " + fR(v.rr) : v.status === "loss" ? " -1.00R" : "") + (v.status === "ambiguous" ? " " + fR(v.Rcons) + " to " + fR(v.Ropt) : "");
+    return '<div class="audit">' + auditChart(p, s) + '<table>' +
+      tr("Candles used", p.audit ? "Sweep " + dt(p.audit.sweepT) + (p.audit.bosT ? " &middot; break " + dt(p.audit.bosT) : "") + (p.audit.confT ? " &middot; retest close " + dt(p.audit.confT) : "") : "-") +
+      tr("R:R maths", "Reward " + fmtPx(Math.abs(s.tp - s.entry)) + " &minus; fees, risk " + fmtPx(risk) + " + fees &rArr; 1:" + (+s.rr).toFixed(2) +
+         (fees.mk !== undefined ? " <small class='k'>(maker " + (fees.mk * 100).toFixed(3) + "%, taker " + (fees.tk * 100).toFixed(3) + "%)</small>" : "")) +
+      tr("Stop maths", p.stop ? esc(p.stop.struct) + " " + fmtPx(p.stop.structPx) + " &rarr; " + esc(p.stop.used) + " = " + fmtPx(s.sl) + " (" + p.stop.dist15 + " x 15m ATR)" : "-") +
+      tr("Target ladder", "T1 " + lt(lad.t1) + "<br>T2 " + lt(lad.t2) + "<br>T3 " + lt(lad.t3) + "<br>Used: " + fmtPx(s.tp) + (p.tpNote ? " (" + esc(p.tpNote) + ")" : "")) +
+      tr("Room", lad.adr ? "Needs " + fmtPx(lad.reqMove) + " = " + (lad.roomADR || 0).toFixed(2) + "x the 5-day average daily range (" + fmtPx(lad.adr) + "); " + fmtPx(lad.leftToday) + " of it left today" +
+         (lad.obst ? " &middot; " + lad.obst + " level(s) in the way" : "") : "-") +
+      tr("Ratings", rat || "-") +
+      tr("Regime", p.regime ? [p.regime.trend, p.regime.vol, p.regime.alts, p.regime.fund].map(esc).join(" &middot; ") : "-") +
+      tr("Outcome times", (s.fillT ? "Filled " + dt(s.fillT) : "Not filled") + (s.endT ? " &middot; ended " + dt(s.endT) : "") + (s.tpAfterSL ? " &middot; target after stop " + dt(s.tpAfterSL) : "")) +
+      tr("Paper tests", sh.map(vline).join("<br>") || "-") +
+      tr("Data quality", (s.resTf ? "checked on " + s.resTf + " candles" : "not checked yet") + (s.note ? " &middot; " + esc(s.note) : "") + (s.status === "unresolved" ? " &middot; <span class='warn'>gap in exchange data</span>" : "")) +
+      '</table></div>';
+  }
+  // Detail of one signal: the frozen plan and how it played out
+  function sigDetail(s){
+    const p = jparse(s.snap || "{}", {}), at = p.atr || {}, risk = Math.abs(s.entry - s.sl);
+    const tr = (k, v) => '<tr><td>' + k + '</td><td>' + v + '</td></tr>';
+    const inAtr = (px, a) => isFinite(px) && a > 0 ? (px / a).toFixed(2) + " ATR" : "-";
+    const stepTxt = [s.fillT ? "Filled " + dt(s.fillT) : "", s.endT ? "Ended " + dt(s.endT) : "", s.slType ? "Stop by " + s.slType : "",
+                     s.tpAfterSL ? "Target reached after the stop at " + dt(s.tpAfterSL) : ""].filter(Boolean).join(" &middot; ");
+    return '<div class="dtl"><table>' +
+      tr("Signal", esc(s.uid) + " &middot; v" + esc(s.ver) + " &middot; " + esc(s.src) + " &middot; " + esc(EX[s.ex] ? EX[s.ex].name : s.ex)) +
+      tr("Plan", "Entry " + fmtPx(s.entry) + " &middot; SL " + fmtPx(s.sl) + " &middot; TP " + fmtPx(s.tp) + " &middot; R:R 1:" + (+s.rr).toFixed(2) + " &middot; expires " + dt(s.exp)) +
+      tr("Level", p.level ? fmtPx(p.level.p) + " &middot; " + esc(p.level.label) + " &middot; " + p.level.strength + "/20, " + p.level.touches + " recent tests" : "-") +
+      tr("Trigger", (p.play ? (PLAY[p.play] || p.play) + " &middot; " : "") + "sweep extreme " + fmtPx(p.sweepExt) + " &middot; break at " + fmtPx(p.bos) + (p.sweepVol !== null && p.sweepVol !== undefined ? " &middot; sweep volume " + p.sweepVol + "x" : "") +
+         (p.sweep ? "<br>Sweep " + esc(p.sweep.grade) + " (" + esc(p.sweep.cls) + "), " + p.sweep.depthT + " ATR deep, close at " + Math.round(p.sweep.rej * 100) + "% of candle" : "") +
+         (p.brk ? "<br>Break " + esc(p.brk.cls) + ", body " + Math.round(p.brk.bodyR * 100) + "% / " + p.brk.bodyX + "x avg, " + p.brk.speed + " candles after sweep" : "") +
+         (p.retest ? "<br>" + esc(p.retest.zoneName || "") + " confirmed on " + esc(p.retest.tf || "") : "")) +
+      tr("Stop set by", p.stop ? esc(p.stop.used) + " &middot; " + p.stop.dist15 + " x 15m ATR from entry" + (p.size && p.size.half ? " &middot; half risk" : "") : "-") +
+      tr("Stop test", jparse(s.shadow || "[]", []).map(v => "+" + v.buf + ": " + fmtPx(v.sl) + " " + ((RES[v.status] || [v.status])[0]) + (v.status === "win" ? " " + fR(v.rr) : v.status === "loss" ? " -1R" : "")).join("<br>") || "-") +
+      tr("Target", p.target ? fmtPx(p.target.p) + " &middot; " + esc(p.target.label) : esc(p.tpNote || "-")) +
+      tr("Stop distance", fmtPx(risk) + " = " + inAtr(risk, at.m5) + " (5m), " + inAtr(risk, at.m15) + " (15m), " + inAtr(risk, at.h1) + " (1H)") +
+      tr("Context", "1H " + trendWord(p.trend ? p.trend.h1 : 0) + ", 4H " + trendWord(p.trend ? p.trend.h4 : 0) + " &middot; BTC 1H " + trendWord(p.btc ? p.btc.h1 : 0) +
+         " &middot; " + esc(p.session || "") + " &middot; funding " + ((p.funding || 0) * 100).toFixed(4) + "%" + (p.oiRead ? " &middot; " + esc(p.oiRead) : "")) +
+      tr("Outcome", (RES[s.status] || [s.status])[0] + (stepTxt ? " &middot; " + stepTxt : "") + (s.note ? "<br>" + esc(s.note) : "")) +
+      tr("MFE / MAE", s.fillT ? fR(s.mfeR) + " / -" + (+(s.maeR || 0)).toFixed(2) + "R &middot; MAE " + inAtr(s.maePx, at.m15) + " (15m)" +
+         (s.postMfeR ? " &middot; best move after stop " + fR(s.postMfeR) : "") : "Not filled") +
+      tr("Checked with", (s.resTf || "-") + " candles" + (s.chkT ? " up to " + dt(s.chkT) : "")) +
+      tr("Grade", s.grade + " (" + Math.round(s.score) + "/100)" + (p.breakdown ? "<br><small>" + p.breakdown.map(b => esc(b.k) + " " + b.pts + "/" + b.max).join(", ") + "</small>" : "")) +
+      tr("Why", esc((p.why || []).join(". "))) + '</table><button type="button" class="btn auditbtn" data-uid="' + esc(s.uid) + '">Audit</button><div class="auditbox" hidden></div></div>';
+  }
+  function csvOf(rows){
+    const cols = ["uid","time","ver","src","exchange","symbol","dir","type","trigger","grade","score","entry","sl","tp","rr","expires","level_type","level",
+                  "status","fill_time","end_time","R","R_conservative","R_optimistic","mfeR","maeR","stop_type","tp_after_stop","best_after_stopR","checked_tf",
+                  "atr5m","atr15m","atr1h","session","btc_1h","trend_1h","trend_4h","funding","note",
+                  "playbook","sweep_grade","sweep_depth_atr","break_class","entry_model","retest_tf","stop_set_by","stop_dist_15m_atr","risk_mult",
+                  "s0_status","s50_status","s75_status","s100_status","s0_rr","s50_rr","s75_rr","s100_rr",
+                  "conf","weakest","r_market","r_level","r_trigger","r_plan","t1","t1R","t2","t2R","t3","t3R","room_adr","late_day","regime_btc","regime_vol","regime_alts","regime_funding",
+                  "xA_R","xB_R","xC_R","xD_R","xT1_R","xF1_R","xF15_R","xF2_R","eBOS_R","eLvl_R"];
+    const q = v => { const s = v === undefined || v === null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const iso = t => t ? new Date(t).toISOString() : "";
+    return [cols.join(",")].concat(rows.map(s => { const p = jparse(s.snap || "{}", {}), at = p.atr || {};
+      return [s.uid, iso(s.t), s.ver, s.src, s.ex, s.sym, s.dir === 1 ? "long" : "short", s.type, s.tf, s.grade, s.score, s.entry, s.sl, s.tp, s.rr, iso(s.exp), s.lt, s.level,
+              s.status, iso(s.fillT), iso(s.endT), s.R, s.Rcons, s.Ropt, s.mfeR, s.maeR, s.slType, iso(s.tpAfterSL), s.postMfeR, s.resTf,
+              at.m5, at.m15, at.h1, p.session, p.btc ? p.btc.h1 : "", p.trend ? p.trend.h1 : "", p.trend ? p.trend.h4 : "", p.funding, s.note,
+              p.play, p.sweep ? p.sweep.grade : "", p.sweep ? p.sweep.depthT : "", p.brk ? p.brk.cls : "", p.retest ? p.retest.zoneName : "", p.retest ? p.retest.tf : "",
+              p.stop ? p.stop.struct : "", p.stop ? p.stop.dist15 : "", p.riskMult]
+              .concat((() => { const sh = jparse(s.shadow || "[]", []), f = k => sh.find(v => v.k === k) || {}; return ["s0","s50","s75","s100"].map(k => f(k).status).concat(["s0","s50","s75","s100"].map(k => f(k).rr)); })())
+              .concat((() => { const rt = k => ((p.ratings || []).find(r => r.k === k) || {}).v, ld = p.ladder || {}, g = p.regime || {}, sh = jparse(s.shadow || "[]", []);
+                               const vr = k => { const v = sh.find(z => z.k === k); return !v ? "" : v.status === "ambiguous" ? "amb" : v.R !== undefined ? v.R : v.status; };
+                               return [p.conf, p.weakest, rt("market"), rt("level"), rt("trigger"), rt("plan"), ld.t1 ? ld.t1.p : "", ld.t1 ? ld.t1.R : "", ld.t2 ? ld.t2.p : "", ld.t2 ? ld.t2.R : "",
+                                       ld.t3 ? ld.t3.p : "", ld.t3 ? ld.t3.R : "", ld.roomADR, ld.lateDay, g.trend, g.vol, g.alts, g.fund]
+                                 .concat(["xA","xB","xC","xD","xT1","xF1","xF15","xF2","eBOS","eLvl"].map(vr)); })())
+              .map(q).join(","); })).join("\r\n");
+  }
+  function saveText(name, mime, text){
+    if (window.AndroidBridge && window.AndroidBridge.saveFile){ window.AndroidBridge.saveFile(name, mime, text); return; }
+    const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: mime })); a.download = name; a.click();
+  }
+  const stampDay = () => { const d = new Date(); return d.getFullYear() + String(d.getMonth() + 1).padStart(2, "0") + String(d.getDate()).padStart(2, "0"); };
+  function renderRuns(){
+    const box = $("runBody"); if (!box || !DB) return;
+    const r = jparse(DB.runs(30), []);
+    box.innerHTML = r.length ? '<div class="tablewrap ptab"><table><thead><tr><th>Time</th><th>Source</th><th>Coins</th><th>Ready</th><th>Status</th></tr></thead><tbody>' +
+      r.map(x => '<tr><td>' + dt(x.startT) + '<br><small class="k">' + Math.max(0, Math.round(((x.endT || x.startT) - x.startT) / 1000)) + 's</small></td><td>' + esc(x.src || "") + '<br><small class="k">' +
+        esc(EX[x.ex] ? EX[x.ex].name : x.ex || "") + '</small></td><td>' + (x.completed || 0) + '/' + (x.requested || 0) + (x.failed ? ' <small class="neg">' + x.failed + ' failed</small>' : '') +
+        '</td><td>' + (x.ready || 0) + (x.logged ? ' <small class="k">(' + x.logged + ' new)</small>' : '') + '</td><td><small>' + esc(x.status || "") + '</small></td></tr>').join("") + '</tbody></table></div>'
+      : '<div class="empty">No scans recorded yet.</div>';
+  }
+  if (!BG){
+    $("perfBody").addEventListener("click", e => {
+      const ch = e.target.closest && e.target.closest(".pchip");
+      if (ch){ pv.range = ch.dataset.range; pv.page = 1; savePv(); renderPerf(); return; }
+      if (e.target.id === "pvMore"){ pv.page++; renderPerf(); return; }
+      const ib = e.target.closest && e.target.closest(".ibtn");
+      if (ib){ const n = $(ib.dataset.info); if (n){ const on = !n.classList.contains("show"); n.classList.toggle("show", on); ib.setAttribute("aria-expanded", on); } return; }
+      const ab = e.target.closest && e.target.closest(".auditbtn");
+      if (ab){ const bx = ab.nextElementSibling, s = ($("perfBody")._rows || []).find(x => x.uid === ab.dataset.uid);
+               if (s){ if (bx.hidden) bx.innerHTML = auditHtml(s); bx.hidden = !bx.hidden; ab.textContent = bx.hidden ? "Audit" : "Hide audit"; if (bx.hidden) openA.delete(s.uid); else openA.add(s.uid); } return; }
+      const tr = e.target.closest && e.target.closest(".sigrow");
+      if (tr){
+        const d = tr.nextElementSibling, s = ($("perfBody")._rows || []).find(x => x.uid === tr.dataset.uid);
+        if (!d || !s) return;
+        if (d.hidden) d.firstElementChild.innerHTML = sigDetail(s);
+        d.hidden = !d.hidden;
+        if (d.hidden){ openD.delete(s.uid); openA.delete(s.uid); } else openD.add(s.uid);
+      }
+    });
+    $("perfBody").addEventListener("change", e => {
+      if (e.target.id === "pvArch"){ pv.arch = e.target.checked; savePv(); renderPerf(); }
+      if (e.target.id === "pvVer"){ pv.allVer = e.target.checked; savePv(); renderPerf(); }
+      if (e.target.id === "pvFrom" || e.target.id === "pvTo"){ pv[e.target.id === "pvFrom" ? "from" : "to"] = e.target.value; pv.page = 1; savePv(); renderPerf(); }
+    });
+    $("btnPerfUpd").addEventListener("click", () => { toast("Checking signal results..."); updateSignals().then(() => toast("Results updated")); });
+    $("btnPerfCsv").addEventListener("click", () => {
+      if (!DB) return;
+      const [from, to] = rangeOf();
+      saveText("scanner_signals_" + stampDay() + ".csv", "text/csv", csvOf(jparse(DB.list(from, to, pv.arch ? 2 : 0), [])));
+    });
+    $("btnPerfBackup").addEventListener("click", () => { if (DB){ DB.backupNow(); saveText("mannerwein_history_" + stampDay() + ".json", "application/json", DB.exportJson()); } });
+    $("btnPerfRestore").addEventListener("click", () => { if (DB && !DB.pickRestore()) toast("Restore is only available in the app"); });
+    $("btnPerfAuto").addEventListener("click", () => {
+      if (!DB) return;
+      const list = jparse(DB.autoBackups(), []), box = $("autoList");
+      box.hidden = !box.hidden;
+      box.innerHTML = list.length ? list.map(f => '<div class="autorow"><span>' + esc(f.name) + ' <small class="k">' + Math.round(f.size / 1024) + ' KB</small></span>' +
+        '<button type="button" class="btn" data-auto="' + esc(f.name) + '">Restore</button></div>').join("") : '<div class="k">No automatic backups yet. One is made each day after a background scan.</div>';
+    });
+    $("autoList").addEventListener("click", e => {
+      const b = e.target.closest && e.target.closest("[data-auto]"); if (!b) return;
+      if (!confirm("Merge " + b.dataset.auto + " into your history? Signals you already have are kept as they are.")) return;
+      MW.perf.restored(jparse(DB.restoreAuto(b.dataset.auto), {}));
+    });
+    $("btnPerfArch").addEventListener("click", () => {
+      if (!DB) return;
+      const [from, to, label] = rangeOf();
+      const n = DB.archive(from, to, !pv.arch);
+      toast(pv.arch ? "Un-archived " + n + " signal(s)" : "Archived " + n + " finished signal(s) from " + label.toLowerCase() + ". They are kept and can be shown with Include archived.", 4000);
+      renderPerf();
+    });
+    $("btnPerfDel").addEventListener("click", () => {
+      if (!DB) return;
+      const [from, to, label] = rangeOf();
+      const n = jparse(DB.list(from, to, 2), []).length;
+      if (!n){ toast("Nothing to delete in this period"); return; }
+      const typed = prompt("This permanently deletes " + n + " signal(s) from " + label.toLowerCase() + ". Back up first if unsure.\nType DELETE to confirm.");
+      if (typed !== "DELETE"){ toast("Nothing deleted"); return; }
+      toast("Deleted " + DB.deleteRange(from, to) + " signal(s)"); renderPerf();
+    });
+    $("runToggle").addEventListener("click", () => { const b = $("runBody"); b.hidden = !b.hidden; $("runToggle").textContent = b.hidden ? "Show scan log" : "Hide scan log"; if (!b.hidden) renderRuns(); });
+  }
+  window.MW = window.MW || {};
+  window.MW.perf = { restored(r){
+    if (r && r.error) toast("Restore failed: " + r.error, 5000);
+    else toast("Restore done: " + (r ? r.added : 0) + " signal(s) added", 4000);
+    renderPerf();
+  } };
+  // test hooks (no effect on the app)
+  window.MW._t = { simStep, exitPlan, varStats, auditHtml, renderResults: (R) => renderResults(R), trackStep, stats, csvOf, logSignal, updateSignals, buildCtx, evaluate, setupAt, gradeOf, sweepEvent, bosOf, retestOf };
   // ---------------- LIVE WATCH (per coin, max 3) ----------------
   const LIVE_MAX = 3;
   const LIVE_KEY = "mwLiveOn";
@@ -3130,7 +4022,7 @@ select option{background:#171034 !important}
     w.eval = c;
     paintCard(card, c, "The watched level is no longer near price");
     const now = c ? (c.fails.length ? "fail" : c.status) : "fail";
-    if (now === "ready" && w.lastStatus !== "ready"){ logSignal(c); toast(cfg.base + " is now READY: limit " + fmtPx(c.entry), 4000); }
+    if (now === "ready" && w.lastStatus !== "ready"){ logSignal(c, "live"); toast(cfg.base + " is now READY: limit " + fmtPx(c.entry), 4000); }
     w.lastStatus = now;
   }
   function ago(ts){ const s = Math.max(0, Math.round((Date.now() - ts) / 1000)); return s < 60 ? s + "s ago" : Math.round(s / 60) + " min ago"; }
@@ -3344,14 +4236,17 @@ select option{background:#171034 !important}
         try { const st = JSON.parse(localStorage.getItem(SKEY) || "{}"); ["minVol","maxCoins","dirMode"].forEach(f => { if (st[f] !== undefined) $(f).value = st[f]; }); } catch(e){}
         if (window.MW.loadCalcPrefs) window.MW.loadCalcPrefs();
         if (EX[exKey]) $("exchange").value = exKey;
-        const key = s => s.t + "|" + s.sym + "|" + s.dir;
-        const before = new Set(sigLoad().map(key));
+        lastNew = [];
         await scan(true);
+        const fresh = lastNew.slice();
         if (window.MWNative.bgProgress) window.MWNative.bgProgress("Updating tracked signals");
         await updateSignals();
-        const fresh = sigLoad().filter(s => !before.has(key(s)));
         window.MWNative.bgDone(JSON.stringify({ status: $("status").textContent, ready: fresh.map(s => ({
-          base: s.base, dir: s.dir, grade: s.grade, type: TYPE[s.type] || s.type, tf: s.tf, entry: fmtPx(s.entry), sl: fmtPx(s.sl), tp: fmtPx(s.tp), rr: (+s.rr).toFixed(2), exp: hhmm(s.exp) })) }));
+          ...(() => { const p = jparse(s.snap || "{}", {}), z = (p.zones || []).find(q => q.k === (p.retest || {}).zone) || null, ld = p.ladder || {};
+                      return { zone: z ? fmtPx(z.lo) + "-" + fmtPx(z.hi) : "", inv: p.invalid || "", t1: ld.t1 ? fmtPx(ld.t1.p) + " (" + ld.t1.R + "R)" : "",
+                               t2: fmtPx(s.tp) + " (" + (+s.rr).toFixed(1) + "R)", why: (p.why || [])[0] || "", weak: (p.risks || [])[0] || "",
+                               conf: p.conf, weakest: p.weakest || "", level: p.level ? p.level.label : "", ready: (p.retest && p.retest.zoneName ? p.retest.zoneName + " held, " + p.retest.tf + " close" : "retest confirmed") }; })(),
+          base: s.base, dir: s.dir, grade: s.grade, type: TYPE[s.type] || s.type, tf: (PLAY[s.tf] || s.tf) + (s.type === "reversal" || s.tf === "5m" ? ", half risk" : ""), entry: fmtPx(s.entry), sl: fmtPx(s.sl), tp: fmtPx(s.tp), rr: (+s.rr).toFixed(2), exp: hhmm(s.exp) })) }));
       } catch(e){ window.MWNative.bgDone(JSON.stringify({ status: "Error: " + (e && e.message ? e.message : e), ready: [] })); }
     }
   };

@@ -69,3 +69,49 @@ New files: `ScanService.java`, `NativeBridge.java`, `AppWebClient.java`, `Prefs.
 - **Tap an alert** to open the app on that scan's results (same entry/SL/TP as the alert).
 - **Scanner performance** keeps re-checking waiting and open trades after every scan until expiry, stop or target (no 24h cut-off; 1H candles fill gaps if the phone was off). New "Being tracked" list shows each with its plan and current R.
 
+### Version 4.0: evidence (permanent history)
+
+- **Native database on the phone** (`SignalDb.java`, SQLite) replaces browser storage. The app screen and the background scanner share one instance, so records are never overwritten or lost. Nothing is deleted automatically; there is no 400-signal limit.
+- **Every Ready signal is frozen** with its full plan and market picture: entry, stop, target, missed level, expiry, level type/strength/tests, sweep extreme, break price, target level, 5m/15m/1H/4H ATR, 1H/4H trend, BTC, funding, OI, volume, session, grade breakdown, reasons and scanner version. Only outcome fields can change later.
+- **Outcome tracking** replays closed candles after each signal's last checkpoint (5m, then 15m, then 1H when older): Waiting, Open, Win, Loss, Missed, Expired, **Ambiguous** (stop and target in one candle: shown as a range, left out of win rate) and **Unresolved** (no candles for the period).
+- **MFE/MAE** in price and R, R milestones (+0.5/+1/+1.5/+2R), wick vs close stops, and 24h follow-up after a stop (did it reach the target anyway?).
+- **Dashboard**: Today, Yesterday, 7 days, 30 days, All, Custom dates; win rate, expectancy, total R, profit factor, worst losing run, max drawdown, sample-size label; breakdown by grade, setup type, trigger, level type, direction, session and exchange; full signal list with tap-to-open detail.
+- **Scan log**: every scan (manual, auto, background) with coins requested/completed/failed, Ready count and new signals.
+- **Backup**: Export CSV, Back up (JSON file anywhere), Restore from file (merges, never overwrites), one automatic backup per day inside the app (last 14 kept), Archive/Un-archive and Delete period (type DELETE to confirm).
+- **Fixed signing key**: builds are signed with your own key from GitHub secrets, so updates install over the app and keep the history.
+- Removed test placeholder classes that had been left in the source folder.
+
+#### One-time signing setup
+1. In GitHub open your repo > **Settings** > **Secrets and variables** > **Actions** > **New repository secret**.
+2. Add the four secrets from `MannerWein-signing-secrets.txt`: `MW_KEY_ALIAS`, `MW_KEYSTORE_PASSWORD`, `MW_KEY_PASSWORD`, `MW_KEYSTORE_BASE64`.
+3. Never commit the `.jks` or the secrets file to the repo. Keep both private.
+4. The first signed build needs one last uninstall of the old (debug-signed) app. After that, every update installs over it.
+
+### Version 4.1: entry and stops
+
+- **New steps to Ready**: Approaching, At level, Swept, Broke structure, Retesting, Ready. Ready now needs a confirmed retest: price pulls back into the break point, the displacement candle or the level, holds, and a 5m/15m candle closes back with a rejection. Entry is that close (no more entering on the first break).
+- **Sweep validation**: depth in ATR, close position in the candle, closes beyond the level, volume and clearance. Graded clean / acceptable / weak; "breakout" (too deep) and "acceptance" (3+ closes beyond) are rejected as not sweeps.
+- **Break of structure quality**: real pivot that was not already broken, prominence, body size vs candle and vs average, distance beyond the swing, volume and speed. Graded strong / acceptable / weak; only strong or acceptable breaks count.
+- **Playbooks**: Dual (15m and 5m both broke structure), Standard 15m, Fast 5m. Fast 5m needs a solid level (12/20+), a clean sweep and a strong break, at half risk. Retests for 15m/dual setups are judged on 15m closes (5m noise alone does not cancel them).
+- **Logical stop**: the lowest (long) / highest (short) of sweep extreme, retest low, level zone and range edge, plus 0.5 x 15m ATR, never closer than 1 x 15m ATR. Position size shrinks so the account risk stays the same.
+- **Stop distance test**: every signal is also tracked with four stops (structure only, +0.5, +0.75, +1.0 x 15m ATR) on the same entry, target and expiry. Results are compared in Scanner performance.
+- **Range setups**: must be at the 1H range edge; first target is the range midpoint (or a strong level before it).
+- **Reversals**: strong level (14/20+), clean sweep, strong 15m break, R:R 2+, not against a strong BTC move, half risk.
+- **Grade**: new Trigger quality factor (sweep, break, retest) worth 20 points.
+- **Scanner performance**: shows the current scanner version by default (older versions can be included), plus breakdowns by playbook, sweep quality, break quality, entry model, retest timeframe and what set the stop. CSV has the new fields.
+- **Checklist**: new must-pass Retest question; sweep, break and stop questions updated to the new rules.
+- Database schema 2 adds the stop-variant columns; the upgrade keeps all existing history.
+
+### Version 4.2: targets, ratings and analysis
+
+- **Target ladder**: T1 nearest obstacle (mapped level or internal 15m swing), T2 first meaningful level (the target used), T3 major liquidity beyond (strong level, previous day/week high/low, 4H swing). Range setups target the range midpoint first.
+- **Room checks**: rejected if a strong level blocks the path before the minimum R:R, if the target needs more than 1.2x the coin's 5-day average daily range, or if R:R after fees is below the minimum ("not enough room to ..."). 2R is only used when no meaningful level is ahead, and is labelled. Warnings when the target is bigger than the move left in today's range, when weaker levels are in the way, and when BTC is close to its own opposing level.
+- **Four ratings** (0-100): Market, Level, Trigger, Trade plan. Ready needs all four at 50+; earlier stages need Market and Level at 50+. The **grade comes from the weakest rating** (A 70+, B 55+, C below); the card shows the confidence (weakest) score. The old points total is kept as the score breakdown.
+- **Market regime** recorded with every scan and signal: BTC trend, volatility (BTC ATR vs 2 days ago), alt breadth (share of coins beating BTC), median funding; plus BTC's nearest support/resistance. Shown on the Market card.
+- **Paper tests (no alerts)** for every signal, replayed on the same candles: exit models (full to target, half at +1R, break-even after +1R, trail after +1R, exit at T1, fixed 1R/1.5R/2R) and entry variants (enter on the break with no retest, limit at the level zone), alongside the v4.1 stop-distance test.
+- **Validation panel**: compares each test with the current rule; calls out a leader only after 30 closed trades and suggests a rule change only after 100 trades and +0.15R per trade. Nothing changes automatically.
+- **More breakdowns**: weakest rating, confidence band, level strength band, BTC aligned/neutral/opposed, OI supportive/neutral/conflicting, funding, volume band, each regime dimension, target type.
+- **Audit view** for each signal: chart of the trigger candles with sweep, break and retest marked and entry/SL/TP/level/T1/T3 lines, plus the R:R, stop and target maths, room, ratings, regime, outcome times, every paper test and data quality.
+- **Richer alerts**: setup and level, entry zone, T1/T2, why it is Ready, why this trade, what cancels it, what is still weak and the weakest rating.
+- Open details and audits stay open when the list refreshes. CSV adds ratings, ladder, room, regime and every paper-test result.
+

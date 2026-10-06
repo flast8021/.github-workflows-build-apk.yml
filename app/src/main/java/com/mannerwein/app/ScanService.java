@@ -107,6 +107,7 @@ public class ScanService extends Service implements NativeBridge.Listener {
         web = new WebView(this);
         AppWebClient.configure(web);
         web.addJavascriptInterface(new NativeBridge(this, web, null, this), "MWNative");
+        web.addJavascriptInterface(new DbBridge(this, null), "MWDb");
         web.setWebViewClient(new AppWebClient(this, false) {
             @Override public void onPageFinished(WebView view, String url) { pageReady = true; }
         });
@@ -192,6 +193,7 @@ public class ScanService extends Service implements NativeBridge.Listener {
             } catch (Exception ignored) {}
             int n = ready == null ? 0 : ready.length();
             if (n > 0) alertAll(ready);   // no Ready setup = no alert at all
+            SignalDb.get(this).autoBackup();   // one rolling backup file per day
             Prefs.ran(this, System.currentTimeMillis(), exName(Prefs.ex(this)) + ": " + shorten(status)
                     + (n > 0 ? " \u00B7 " + n + " alert" + (n > 1 ? "s" : "") + " sent" : ""));
             scheduleNext();
@@ -278,8 +280,18 @@ public class ScanService extends Service implements NativeBridge.Listener {
             String head = s.optString("base") + " " + (lng ? "LONG" : "SHORT") + " Ready \u00B7 Grade " + s.optString("grade");
             String brief = "Limit " + s.optString("entry") + " \u00B7 SL " + s.optString("sl") + " \u00B7 TP " + s.optString("tp")
                     + " \u00B7 R:R 1:" + s.optString("rr");
-            String full = brief + "\n" + s.optString("type") + ", " + s.optString("tf") + " trigger. Valid until "
-                    + s.optString("exp") + ".\nTap to open the scan results. Confirm on your chart before entering.";
+            StringBuilder fb = new StringBuilder(brief);
+            fb.append("\nSetup: ").append(s.optString("type")).append(", ").append(s.optString("tf"));
+            if (!s.optString("level").isEmpty()) fb.append(" at ").append(s.optString("level"));
+            if (!s.optString("zone").isEmpty()) fb.append("\nEntry zone: ").append(s.optString("zone"));
+            if (!s.optString("t1").isEmpty()) fb.append("\nT1: ").append(s.optString("t1")).append(" \u00B7 T2: ").append(s.optString("t2"));
+            if (!s.optString("ready").isEmpty()) fb.append("\nWhy Ready: ").append(s.optString("ready"));
+            if (!s.optString("why").isEmpty()) fb.append("\nWhy this trade: ").append(s.optString("why"));
+            if (!s.optString("inv").isEmpty()) fb.append("\nCancels if: ").append(s.optString("inv"));
+            if (!s.optString("weak").isEmpty()) fb.append("\nStill weak: ").append(s.optString("weak"));
+            if (!s.optString("weakest").isEmpty()) fb.append("\nWeakest rating: ").append(s.optString("weakest")).append(" (").append(s.optString("conf")).append("/100)");
+            fb.append("\nValid until ").append(s.optString("exp")).append(". Tap to open the scan results. Confirm on your chart before entering.");
+            String full = fb.toString();
             lines.append(head).append(": ").append(brief).append('\n');
             Notification n = new Notification.Builder(this, CH_ALERT)
                     .setSmallIcon(R.drawable.ic_stat)

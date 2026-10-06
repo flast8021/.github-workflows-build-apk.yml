@@ -10,13 +10,27 @@ android {
         applicationId "com.mannerwein.app"
         minSdk 26
         targetSdk 35
-        versionCode 3
-        versionName "3.0"
+        versionCode 6
+        versionName "4.2"
+    }
+
+    // One fixed key (from GitHub secrets) so every new APK installs over the old one and keeps the history database.
+    signingConfigs {
+        release {
+            def ks = System.getenv("MW_KEYSTORE")
+            if (ks) {
+                storeFile file(ks)
+                storePassword System.getenv("MW_KEYSTORE_PASSWORD")
+                keyAlias System.getenv("MW_KEY_ALIAS")
+                keyPassword System.getenv("MW_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             minifyEnabled false
+            signingConfig signingConfigs.release
         }
     }
 
