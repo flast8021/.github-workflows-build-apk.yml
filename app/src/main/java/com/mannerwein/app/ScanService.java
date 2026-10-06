@@ -289,6 +289,7 @@ public class ScanService extends Service implements NativeBridge.Listener {
             if (!s.optString("why").isEmpty()) fb.append("\nWhy this trade: ").append(s.optString("why"));
             if (!s.optString("inv").isEmpty()) fb.append("\nCancels if: ").append(s.optString("inv"));
             if (!s.optString("weak").isEmpty()) fb.append("\nStill weak: ").append(s.optString("weak"));
+            if (!s.optString("hist").isEmpty()) fb.append("\nHistory: ").append(s.optString("hist"));
             if (!s.optString("weakest").isEmpty()) fb.append("\nWeakest rating: ").append(s.optString("weakest")).append(" (").append(s.optString("conf")).append("/100)");
             fb.append("\nValid until ").append(s.optString("exp")).append(". Tap to open the scan results. Confirm on your chart before entering.");
             String full = fb.toString();

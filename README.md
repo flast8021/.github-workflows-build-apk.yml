@@ -115,3 +115,11 @@ New files: `ScanService.java`, `NativeBridge.java`, `AppWebClient.java`, `Prefs.
 - **Richer alerts**: setup and level, entry zone, T1/T2, why it is Ready, why this trade, what cancels it, what is still weak and the weakest rating.
 - Open details and audits stay open when the list refreshes. CSV adds ratings, ladder, room, regime and every paper-test result.
 
+#### Version 4.3: completing the A-Z plan
+- **Retest volume quality**: pullback volume vs the pre-break average and confirming-candle volume vs the pullback. Graded confirming / mixed / poor, worth 10 points of the Trigger rating, shown on the card, in details, audit and a new breakdown.
+- **Close-only stop test** (paper): exits only when a candle closes beyond the stop, at that close (losses can exceed 1R). Compared with the normal touch stop in the Exit test and Validation panel.
+- **Swing trailing test** (paper): after +1R, trails behind confirmed swing points (2 candles each side), alongside the existing last-3-candles trail.
+- **Historical target reach**: each card shows how often similar past signals (same playbook and setup type, widening if fewer than 10) reached T1, T2 and T3. A Target reach table on the dashboard shows the same by playbook. Information only, never blocks a trade.
+- **More statistics**: median R, standard deviation and downside deviation.
+- Alerts include the history line. CSV adds the new fields.
+

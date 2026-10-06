@@ -773,7 +773,8 @@ select option{background:#171034 !important}
       <b>Playbooks:</b> Dual (15m and 5m both broke structure), Standard 15m, and Fast 5m (needs a solid level, a clean sweep and a strong break; half risk). Reversals need a strong level, a clean sweep, a strong 15m break and R:R 2+, at half risk. Range setups must be at the 1H range edge and target the range midpoint first.<br>
       <b>Stop:</b> beyond the lowest of the sweep extreme, retest low, level zone (and range edge) plus 0.5 x 15m ATR, never closer than 1 x 15m ATR. Size shrinks so the account risk stays the same. Four other stop distances are tracked in Scanner performance for comparison.<br>
       <b>Targets:</b> T1 nearest obstacle, T2 first meaningful level (the target used), T3 major liquidity beyond. A setup is rejected if a strong level blocks the path, the target needs more than 1.2x the coin's average daily range, or the R:R after fees is below your minimum. 2R is only used when nothing is in the way.<br>
-      <b>Ratings:</b> Market, Level, Trigger and Trade plan are each scored out of 100. Ready needs all four at 50+, and the <b>grade comes from the weakest one</b> (A 70+, B 55+, C below), so one weak part cannot hide behind strong ones. Market regime (BTC trend, volatility, alt strength, funding) is recorded with every signal. Always confirm on your own chart.</p>
+      <b>Ratings:</b> Market, Level, Trigger and Trade plan are each scored out of 100. Ready needs all four at 50+, and the <b>grade comes from the weakest one</b> (A 70+, B 55+, C below), so one weak part cannot hide behind strong ones. Market regime (BTC trend, volatility, alt strength, funding) is recorded with every signal.<br>
+      <b>Retest volume:</b> a pullback on lighter volume and a confirming candle on heavier volume adds to the Trigger rating. <b>History</b> on each card shows how often similar past signals reached T1, T2 and T3 (information only). Always confirm on your own chart.</p>
     <div class="results" id="results"><div class="empty">Run a scan to see the best setups.</div></div>
   </div>
   <div class="card" id="perfCard">
@@ -2435,6 +2436,16 @@ select option{background:#171034 !important}
     return Z.sort((p, q) => up ? q.hi - p.hi : p.lo - q.lo);         // shallow first
   }
   // Retest after the break: touch a zone, do not close through it, then a candle closes back with rejection
+  // Volume during the pullback vs before the break, and on the confirming candle vs the pullback.
+  // Healthy retest: pullback volume contracts (<= 1x the pre-break average) and the response expands (>= 1.2x the pullback).
+  function retestVol(cr, fromT, pb, k){
+    const pre = cr.filter(b => b.t < fromT).slice(-20), avg = arr => arr.length ? arr.reduce((x, b) => x + b.v, 0) / arr.length : 0;
+    const base = avg(pre), pbAvg = avg(pb);
+    if (!(base > 0)) return { q: "unknown", pbX: null, respX: null };
+    const pbX = pb.length ? pbAvg / base : null, respX = pbAvg > 0 ? k.v / pbAvg : k.v / base;
+    const con = pbX === null || pbX <= 1.0, exp = respX >= 1.2;
+    return { q: con && exp ? "confirming" : con || exp ? "mixed" : "poor", pbX: pbX === null ? null : +pbX.toFixed(3), respX: +respX.toFixed(3), con, exp };
+  }
   function retestOf(cr, tfr, fromT, Z, d, aR, ext, maxMs, now){
     const up = d === 1, cs = cr.filter(k => k.t >= fromT), deep = Z[Z.length - 1];
     let touch = null, touchI = -1, low = null;
@@ -2453,7 +2464,7 @@ select option{background:#171034 !important}
       if (touch && j - touchI <= 3){
         const rng = k.h - k.l, rej = rng > 0 ? (up ? k.c - k.l : k.h - k.c) / rng : 0;
         if ((up ? k.c > k.o : k.c < k.o) && rej >= 0.5 && (up ? k.c >= touch.mid : k.c <= touch.mid))
-          return { state: "confirmed", zone: touch, conf: k, confT: k.t + TF[tfr].sec * 1000, entry: k.c, low, tf: tfr, rej };
+          return { state: "confirmed", zone: touch, conf: k, confT: k.t + TF[tfr].sec * 1000, entry: k.c, low, tf: tfr, rej, vol: retestVol(cr, fromT, cs.slice(0, j), k) };
       }
       if (touch && j - touchI > 3){ touch = null; touchI = -1; }       // no confirmation in time: wait for the next touch
     }
@@ -2631,7 +2642,7 @@ select option{background:#171034 !important}
                             : { v: false, r: S && S.failed ? S.failed : "No sweep of " + lvTxt + " yet" },
       bos: bosOk ? { v: true, r: B.cls + " break of " + fmtPx(B.swing) + " on " + (play === "dual" ? "15m and 5m" : play) + " (body " + Math.round(B.bodyR * 100) + "% of candle, " + B.bodyX.toFixed(1) + "x average)" }
                  : { v: false, r: B && B.cls !== "none" ? "Break of " + fmtPx(B.swing) + " is " + B.cls + ", not convincing" : "No close " + (up ? "above " : "below ") + fmtPx(X) + " yet" },
-      retest: status === "ready" ? { v: true, r: rt.zone.n + " held: " + rt.tf + " candle closed " + (up ? "back up at " : "back down at ") + fmtPx(rt.entry) }
+      retest: status === "ready" ? { v: true, r: rt.zone.n + " held: " + rt.tf + " candle closed " + (up ? "back up at " : "back down at ") + fmtPx(rt.entry) + (rt.vol && rt.vol.q !== "unknown" ? ", volume " + rt.vol.q : "") }
                                  : { v: false, r: status === "retest" ? "Retesting " + rt.touch.n.toLowerCase().replace(" retest", "") + ", waiting for a confirming close" : status === "displaced" ? "Waiting for a pullback into " + fmtPx(Z[Z.length - 1].lo) + " to " + fmtPx(Z[0].hi) : "Needs a sweep and a break first" },
       stop: status === "ready" ? { v: true, r: "Stop beyond the " + slWhy + " at " + fmtPx(sl) }
                                : { v: false, r: "Stop is an estimate until the retest confirms" },
@@ -2706,7 +2717,7 @@ select option{background:#171034 !important}
     const lvl = cl(c.L.strength / 20 * 60 + (nS >= 3 ? 20 : nS === 2 ? 12 : 5) + (c.L.touches >= 1 && c.L.touches <= 3 ? 20 : c.L.touches === 0 ? 12 : c.L.touches <= 5 ? 10 : 0));
     const trg = cl((!c.sw ? 0 : ({ clean: 35, acceptable: 25, weak: 10 }[c.sw.grade] || 0)) +
                    (!c.bos || c.bos.cls === "none" ? 0 : c.bos.cls === "strong" ? 35 : c.bos.cls === "acceptable" ? 25 : 5) +
-                   (c.status === "ready" ? 30 : c.status === "retest" ? 15 : 0) - (c.play === "5m" ? 10 : 0));
+                   (c.status === "ready" ? 20 + ({ confirming: 10, mixed: 5, poor: 0 }[(c.rt && c.rt.vol || {}).q] ?? 5) : c.status === "retest" ? 10 : 0) - (c.play === "5m" ? 10 : 0));
     const lad = c.ladder || {}, sd = c.a15 > 0 ? Math.abs(c.entry - c.sl) / c.a15 : 2;
     const pln = cl((c.rr >= 3 ? 40 : c.rr >= 2.5 ? 34 : c.rr >= 2 ? 28 : c.rr >= 1.5 ? 20 : 8) +
                    (lad.roomADR === null || lad.roomADR === undefined ? 15 : lad.roomADR <= 0.5 ? 25 : lad.roomADR <= 0.8 ? 18 : lad.roomADR <= 1.0 ? 10 : 0) +
@@ -2714,7 +2725,7 @@ select option{background:#171034 !important}
     c.ratings = [
       { k: "market", n: "Market", v: mkt, t: "volume, BTC, session, OI & funding, strength vs BTC" + (btcBlock ? ", BTC is close to its own " + (up ? "resistance" : "support") : "") },
       { k: "level", n: "Level", v: lvl, t: c.L.strength + "/20, " + nS + " source" + (nS === 1 ? "" : "s") + ", " + c.L.touches + " recent tests" },
-      { k: "trigger", n: "Trigger", v: trg, t: (c.sw ? c.sw.grade + " sweep" : "no sweep") + ", " + (c.bos && c.bos.cls !== "none" ? c.bos.cls + " break" : "no break") + ", " + (c.status === "ready" ? "retest confirmed" : c.status === "retest" ? "retesting" : "no retest") },
+      { k: "trigger", n: "Trigger", v: trg, t: (c.sw ? c.sw.grade + " sweep" : "no sweep") + ", " + (c.bos && c.bos.cls !== "none" ? c.bos.cls + " break" : "no break") + ", " + (c.status === "ready" ? "retest confirmed" + (c.rt && c.rt.vol ? ", retest volume " + c.rt.vol.q : "") : c.status === "retest" ? "retesting" : "no retest") },
       { k: "plan", n: "Trade plan", v: pln, t: "R:R 1:" + c.rr.toFixed(2) + (lad.roomADR !== null && lad.roomADR !== undefined ? ", needs " + lad.roomADR.toFixed(2) + "x daily range" : "") + ", " + (lad.obst || 0) + " obstacle(s), stop " + sd.toFixed(1) + " x 15m ATR" }
     ];
     // Ready needs all four at 50+. Earlier stages need Market and Level at 50+ (trigger and plan are still forming).
@@ -2763,6 +2774,7 @@ select option{background:#171034 !important}
     if (bN !== undefined && bN !== null && bN < 0.5) r.push("BTC is " + bN.toFixed(1) + " ATR from its own " + (up ? "resistance" : "support"));
     if (c.ladder && c.ladder.lateDay) r.push("Target is bigger than the move left in today's average range");
     if (c.ladder && c.ladder.obst) r.push(c.ladder.obst + " weaker level(s) between entry and target");
+    if (c.status === "ready" && c.rt && c.rt.vol && c.rt.vol.q === "poor") r.splice(c.weakest && c.weakest.v < 65 ? 1 : 0, 0, "Retest volume did not confirm (pullback " + (c.rt.vol.pbX === null ? "-" : c.rt.vol.pbX.toFixed(1) + "x") + ", response " + c.rt.vol.respX.toFixed(1) + "x)");
     if (L.touches >= 6) r.push("Level tested " + L.touches + " times recently, it may be wearing out");
     if (c.rr < c.needRR + 0.3) r.push("R:R is close to your minimum");
     if (c.sess.pts === 1) r.push(c.sess.n + " session, moves can be slow");
@@ -2919,6 +2931,8 @@ select option{background:#171034 !important}
       renderMarket(btc, list.length, u);
       stopAll();
       inChkCard = null;
+      // How often similar past signals reached this setup's T1 / T2 / T3 (information only, never blocks a trade)
+      if (DB){ const H = histPool(); ready.concat(watching).forEach(c => { c.hist = histFor(c, H); }); }
       renderResults({ ready, watching, closest, warn, all: all2, scanned: list.length });
       ready.forEach(c => logSignal(c));
       run.ready = ready.length; run.watching = watching.length; run.logged = newSig.length;
@@ -2962,6 +2976,7 @@ select option{background:#171034 !important}
       row("Plan", "SL <b>" + fmtPx(c.sl) + "</b> &middot; TP <b>" + fmtPx(c.tp) + "</b>" + (c.tpNote ? " <small class='k'>(" + esc(c.tpNote) + ")</small>" : "") + " &middot; R:R <b>1:" + c.rr.toFixed(2) + "</b>" + est) +
       (c.ladder ? row("Targets", ["t1", "t2", "t3"].map(k => c.ladder[k] ? k.toUpperCase() + " " + fmtPx(c.ladder[k].p) + " <small class='k'>(" + c.ladder[k].R + "R)</small>" : "").filter(Boolean).join(" &middot; ") +
          (c.ladder.roomADR !== null && c.ladder.roomADR !== undefined ? "<br><small class='k'>Needs " + c.ladder.roomADR.toFixed(2) + "x the average daily range" + (c.ladder.lateDay ? ", more than is left today" : "") + "</small>" : "")) : "") +
+      (c.hist ? row("History", "Similar setups reached " + histTxt(c.hist)) : "") +
       (c.ratings ? row("Ratings", c.ratings.map(r => '<span class="rt ' + (r.v >= 70 ? "pos" : r.v >= 50 ? "" : "neg") + '">' + r.n + " " + r.v + "</span>").join(" &middot; ") +
          (c.weakest ? " <small class='k'>(weakest: " + esc(c.weakest.n) + ")</small>" : "")) : "") +
       row("Stop", esc(c.slWhy) + (c.status === "ready" ? "" : " <small class='k'>(estimate)</small>")) +
@@ -2986,7 +3001,8 @@ select option{background:#171034 !important}
          Math.round(sw.rej * 100) + "% of candle &middot; " + sw.beyond + " close(s) beyond &middot; volume " + (sw.volX === null ? "-" : f2(sw.volX) + "x") : esc(c.swFail || "None yet")) +
       tr("Break", B && B.cls !== "none" ? esc(B.cls) + " &middot; swing " + fmtPx(B.swing) + (B.real ? " (prominence " + f2(B.prom) + " ATR)" : " (no clear pivot)") +
          (B.idx >= 0 ? " &middot; body " + Math.round(B.bodyR * 100) + "% / " + f2(B.bodyX) + "x avg &middot; closed " + f2(B.beyond) + " ATR beyond &middot; volume " + f2(B.volB) + "x &middot; " + B.speed + " candles after sweep" : "") : "None yet") +
-      tr("Retest", c.rt ? esc(c.rt.state) + (c.rt.zone ? " &middot; " + esc(c.rt.zone.n) + " on " + c.rt.tf : c.rt.touch ? " &middot; touched " + esc(c.rt.touch.n) : "") + (c.rt.why ? " &middot; " + esc(c.rt.why) : "") : "-") +
+      tr("Retest", c.rt ? esc(c.rt.state) + (c.rt.zone ? " &middot; " + esc(c.rt.zone.n) + " on " + c.rt.tf : c.rt.touch ? " &middot; touched " + esc(c.rt.touch.n) : "") + (c.rt.why ? " &middot; " + esc(c.rt.why) : "") +
+         (c.rt.vol ? "<br>Volume " + esc(c.rt.vol.q) + ": pullback " + (c.rt.vol.pbX === null ? "-" : f2(c.rt.vol.pbX) + "x") + " of pre-break average, response " + (c.rt.vol.respX === null ? "-" : f2(c.rt.vol.respX) + "x") + " of the pullback" : "") : "-") +
       tr("Stop candidates", "Structure: " + esc(c.struct.k) + " " + fmtPx(c.struct.p) + "<br>" + c.shadow.map(v => "+" + v.buf + " ATR: " + fmtPx(v.sl) + " (1:" + v.rr.toFixed(2) + ")").join(" &middot; ") +
          "<br>Used: " + esc(c.slWhy)) + '</table>';
     const rts = c.ratings ? '<h4>Ratings (grade = weakest)</h4><table>' + c.ratings.map(r => '<tr><td>' + r.n + '</td><td>' + esc(r.t) + '</td><td class="pts">' + r.v + '/100</td></tr>').join("") + '</table>' : "";
@@ -3108,7 +3124,7 @@ select option{background:#171034 !important}
     scan(true);
   }, 20000);
   // ---------------- SIGNAL HISTORY (v4: permanent database on the phone) ----------------
-  const SCANNER_VERSION = "4.2";
+  const SCANNER_VERSION = "4.3";
   const DB = window.MWDb && typeof window.MWDb.insert === "function" ? window.MWDb : null;
   try { localStorage.removeItem("mwSignals"); } catch(e){}          // v3 browser history is not used any more
   let scanNew = null, lastNew = [];                                   // signals logged by the scan in progress / the last scan
@@ -3136,7 +3152,9 @@ select option{background:#171034 !important}
                       rej: r3(c.sw.rej), beyond: c.sw.beyond, volX: c.sw.volX === null ? null : r3(c.sw.volX), clear: r3(c.sw.clear) } : null,
       brk: c.bos ? { cls: c.bos.cls, swing: c.bos.swing, real: c.bos.real, prom: r3(c.bos.prom), bodyR: r3(c.bos.bodyR), bodyX: r3(c.bos.bodyX),
                      beyond: r3(c.bos.beyond), volB: r3(c.bos.volB), speed: c.bos.speed, distL: r3(c.bos.distL) } : null,
-      retest: c.rt ? { zone: c.rt.zone ? c.rt.zone.k : null, zoneName: c.rt.zone ? c.rt.zone.n : null, tf: c.rt.tf, low: c.rt.low, rej: r3(c.rt.rej), confT: c.rt.confT } : null,
+      retest: c.rt ? { zone: c.rt.zone ? c.rt.zone.k : null, zoneName: c.rt.zone ? c.rt.zone.n : null, tf: c.rt.tf, low: c.rt.low, rej: r3(c.rt.rej), confT: c.rt.confT,
+                       vol: c.rt.vol || null } : null,
+      hist: c.hist || null,
       zones: c.zones ? c.zones.map(z => ({ k: z.k, lo: z.lo, hi: z.hi })) : null,
       stop: { struct: c.struct.k, structPx: c.struct.p, used: c.slWhy, dist15: r3(Math.abs(c.entry - c.sl) / c.a15) },
       range: c.type === "range" ? { lo: x.rLo, hi: x.rHi, mid: (x.rLo + x.rHi) / 2 } : null,
@@ -3301,6 +3319,25 @@ select option{background:#171034 !important}
     if (!BG) renderPerf();
   }
 
+  // ---- Historical target reach ----
+  // A past signal "reached" R if its best move after the fill (MFE) got there, or it won with a target at or beyond R.
+  const reachedR = (s, R) => (s.mfeR || 0) >= R - 1e-9 || (s.status === "win" && (s.tp - s.entry) * s.dir / Math.abs(s.entry - s.sl) >= R - 1e-9);
+  function histPool(){
+    if (!DB) return [];
+    return jparse(DB.list(0, Date.now() + 86400000, 2), []).filter(s => s.fillT && ["win", "loss", "ambiguous"].includes(s.status));
+  }
+  function histFor(c, H){
+    if (!c.ladder || !H.length) return null;
+    let pool = H.filter(s => s.tf === c.play && s.type === c.type), scope = (PLAY[c.play] || c.play) + ", " + (TYPE[c.type] || c.type);
+    if (pool.length < 10){ pool = H.filter(s => s.type === c.type); scope = TYPE[c.type] || c.type; }
+    if (pool.length < 10){ pool = H; scope = "all setups"; }
+    const risk = Math.abs(c.entry - c.sl), t2R = risk > 0 ? (c.tp - c.entry) * c.dir / risk : null;
+    const pct = R => R === null || R === undefined || !(R > 0) ? null : Math.round(pool.filter(s => reachedR(s, R)).length / pool.length * 100);
+    return { n: pool.length, scope, t1: pct(c.ladder.t1 && c.ladder.t1.R), t2: pct(t2R), t3: pct(c.ladder.t3 && c.ladder.t3.R),
+             t1R: c.ladder.t1 ? c.ladder.t1.R : null, t2R: t2R === null ? null : +t2R.toFixed(2), t3R: c.ladder.t3 ? c.ladder.t3.R : null };
+  }
+  const histTxt = h => !h ? "" : ["t1", "t2", "t3"].filter(k => h[k] !== null && h[k] !== undefined).map(k => k.toUpperCase() + " " + h[k] + "%").join(" &middot; ") +
+    " <small class='k'>(" + h.n + " similar past signals: " + esc(h.scope) + (h.n < 30 ? ", early sample" : "") + ")</small>";
   // ---- Shadow exit models and entry variants (v4.2, paper only) ----
   // Each variant keeps its own state (v) and is replayed on the same closed candles as the real signal.
   // Exit models share the real entry/stop/expiry and change only how the trade is closed:
@@ -3310,12 +3347,12 @@ select option{background:#171034 !important}
   // eLvl (limit at the level zone). R here is before fees, in each variant's own risk.
   // Same-candle conflicts are Ambiguous; stops/targets moved by a model only apply from the next candle.
   const EXIT_LBL = { xA: "Full to target (current)", xB: "Half at +1R, rest to target", xC: "Break-even after +1R", xD: "Trail after +1R (last 3 candles)",
-                     xT1: "Full exit at T1", xF1: "Fixed 1R", xF15: "Fixed 1.5R", xF2: "Fixed 2R" };
+                     xE: "Trail after +1R (confirmed swings)", xCl: "Stop only on a candle close", xT1: "Full exit at T1", xF1: "Fixed 1R", xF15: "Fixed 1.5R", xF2: "Fixed 2R" };
   const ENTRY_LBL = { xA: "Retest-confirmed entry (current)", eBOS: "Enter on the break, no retest", eLvl: "Limit at the level zone" };
   function exitPlan(c){
     const risk = Math.abs(c.entry - c.sl), d = c.dir, L = [];
     const add = (k, o) => L.push(Object.assign({ k, kind: "exit", status: "pending" }, o));
-    add("xA", {}); add("xB", { m: "half1R" }); add("xC", { m: "be1R" }); add("xD", { m: "trail1R" });
+    add("xA", {}); add("xB", { m: "half1R" }); add("xC", { m: "be1R" }); add("xD", { m: "trail1R" }); add("xE", { m: "swing1R" }); add("xCl", { m: "close" });
     if (c.ladder && c.ladder.t1 && (c.ladder.t1.p - c.entry) * d > 0 && (c.ladder.t1.p - c.tp) * d < 0) add("xT1", { tp: c.ladder.t1.p });
     [["xF1", 1], ["xF15", 1.5], ["xF2", 2]].forEach(([k, r]) => add(k, { tp: c.entry + d * r * risk }));
     if (c.bos && c.bos.idx >= 0 && c.bos.t){
@@ -3337,7 +3374,8 @@ select option{background:#171034 !important}
     if (todo[0].t - chk >= sec * 1.5){ v.status = "unresolved"; v.note = "data gap"; return; }
     const beyond = (p, l) => up ? p <= l : p >= l, reach = (p, l) => up ? p >= l : p <= l;
     let stop = v.cur !== undefined ? v.cur : s.sl;
-    const lows = v.lows || [];
+    const lows = v.lows || [], sw = v.sw || [];           // sw: last 5 candles' lows (long) / highs (short) for swing confirmation
+    const isClose = v.m === "close";
     const done = (st, R) => { v.status = st; if (R !== undefined) v.R = +(+R).toFixed(3); };
     for (const k of todo){
       v.chkT = k.t + sec;
@@ -3345,7 +3383,7 @@ select option{background:#171034 !important}
         if (k.t >= s.exp){ done("expired"); v.endT = k.t; break; }
         if (!beyond(up ? k.l : k.h, entry)){ if (s.mx && reach(up ? k.h : k.l, s.mx)){ done("missed"); v.endT = k.t; break; } continue; }
         v.fillT = k.t;
-        if (beyond(up ? k.l : k.h, s.sl)){ done("loss", -1); v.endT = k.t; break; }
+        if (isClose ? beyond(k.c, s.sl) : beyond(up ? k.l : k.h, s.sl)){ done("loss", isClose ? (k.c - entry) * d / risk : -1); v.endT = k.t; break; }
         if (reach(up ? k.h : k.l, tp)){ done("ambiguous"); v.Rcons = 0; v.Ropt = +tpR.toFixed(3); v.endT = k.t; break; }
         v.status = "open"; lows.push(up ? k.l : k.h);
         if (!v.r1 && reach(up ? k.c : k.c, oneR)) v.r1 = true;
@@ -3353,7 +3391,13 @@ select option{background:#171034 !important}
       }
       if (v.status !== "open") break;
       const stopR = (stop - entry) * d / risk, bank = v.part ? 0.5 : 0, w = v.part ? 0.5 : 1;
-      const hitS = beyond(up ? k.l : k.h, stop), hitT = reach(up ? k.h : k.l, tp);
+      const hitT = reach(up ? k.h : k.l, tp);
+      if (isClose){                                    // no intrabar stop: a touched target fills first; exit only on a close beyond the stop
+        if (hitT){ done("win", tpR); v.endT = k.t; break; }
+        if (beyond(k.c, stop)){ done("loss", (k.c - entry) * d / risk); v.endT = k.t; break; }
+        continue;
+      }
+      const hitS = beyond(up ? k.l : k.h, stop);
       const hit1 = v.m === "half1R" && !v.part && reach(up ? k.h : k.l, oneR);
       if (hitS && (hitT || hit1)){
         done("ambiguous"); v.endT = k.t;
@@ -3368,8 +3412,14 @@ select option{background:#171034 !important}
       if (v.r1 && v.m === "be1R") stop = up ? Math.max(stop, entry) : Math.min(stop, entry);
       lows.push(up ? k.l : k.h); if (lows.length > 3) lows.shift();
       if (v.r1 && v.m === "trail1R" && lows.length === 3){ const tr = up ? Math.min(...lows) : Math.max(...lows); stop = up ? Math.max(stop, tr) : Math.min(stop, tr); }
+      // Confirmed swing: the middle of the last 5 candles is lower (long) / higher (short) than the 2 on each side
+      sw.push(up ? k.l : k.h); if (sw.length > 5) sw.shift();
+      if (v.m === "swing1R" && v.r1 && sw.length === 5){
+        const m = sw[2], ok = up ? m < sw[0] && m < sw[1] && m < sw[3] && m < sw[4] : m > sw[0] && m > sw[1] && m > sw[3] && m > sw[4];
+        if (ok) stop = up ? Math.max(stop, m) : Math.min(stop, m);
+      }
     }
-    v.cur = stop; v.lows = lows;
+    v.cur = stop; v.lows = lows; v.sw = sw;
   }
   // Results of one variant across signals (breakeven counts as a closed trade at 0R)
   function varStats(vs){
@@ -3414,7 +3464,11 @@ select option{background:#171034 !important}
       streak = s.status === "loss" ? streak + 1 : 0; worst = Math.max(worst, streak);
       eq += s.R || 0; peak = Math.max(peak, eq); dd = Math.max(dd, peak - eq);
     });
-    return { n: arr.length, closed: closed.length, wins: wins.length, losses: losses.length, filled: filled.length,
+    const Rs = closed.map(s => +s.R || 0).sort((p, q) => p - q), n = Rs.length, mean = n ? Rs.reduce((x, v) => x + v, 0) / n : null;
+    const med = !n ? null : n % 2 ? Rs[(n - 1) / 2] : (Rs[n / 2 - 1] + Rs[n / 2]) / 2;
+    const sd = n > 1 ? Math.sqrt(Rs.reduce((x, v) => x + (v - mean) * (v - mean), 0) / (n - 1)) : null;
+    const dsd = n ? Math.sqrt(Rs.reduce((x, v) => x + Math.min(0, v) * Math.min(0, v), 0) / n) : null;
+    return { med, sd, dsd, n: arr.length, closed: closed.length, wins: wins.length, losses: losses.length, filled: filled.length,
              wr: closed.length ? wins.length / closed.length * 100 : null, exp: closed.length ? (sumW - sumL) / closed.length : null,
              total: sumW - sumL, pf: sumL > 0 ? sumW / sumL : (sumW > 0 ? Infinity : null), worst, dd,
              amb: amb.length, ambLo: amb.reduce((a, s) => a + (s.Rcons || 0), 0), ambHi: amb.reduce((a, s) => a + (s.Ropt || 0), 0) };
@@ -3446,11 +3500,15 @@ select option{background:#171034 !important}
       b2("Profit factor", S.pf === null ? "-" : S.pf === Infinity ? "&infin;" : S.pf.toFixed(2)) +
       b2("Worst losing run", S.worst + " in a row") +
       b2("Max drawdown", S.closed ? "-" + S.dd.toFixed(2) + "R" : "-") +
+      b2("Median R", fR(S.med), S.med === null ? "" : S.med >= 0 ? "pos" : "neg") +
+      b2("Spread of results", S.sd === null ? "-" : "&plusmn;" + S.sd.toFixed(2) + "R <small class='k'>(std dev)</small>") +
+      b2("Downside deviation", S.dsd === null ? "-" : S.dsd.toFixed(2) + "R") +
       b2("Ambiguous", S.amb ? S.amb + ' <small class="k">(' + fR(S.ambLo) + ' to ' + fR(S.ambHi) + ')</small>' : "0") + '</div>' +
       '<div class="k" style="margin-top:6px">' + sampleTag(S.closed) + ' Not filled: ' + cnt("missed") + ' missed, ' + cnt("expired") + ' expired. Still tracking: ' +
       cnt("pending") + ' waiting, ' + cnt("open") + ' open. ' + (cnt("unresolved") ? cnt("unresolved") + ' unresolved (data gap). ' : '') +
       'Ambiguous and unresolved signals are left out of win rate and expectancy.</div>';
     // Excursion: how far trades went for and against before they ended
+    const snapOf = s => jparse(s.snap || "{}", {});
     const filled = a.filter(s => s.fillT && s.status !== "open");
     if (filled.length){
       const pctR = r => Math.round(filled.filter(s => (s.mfeR || 0) >= r || s.status === "win" && s.rr >= r).length / filled.length * 100);
@@ -3468,6 +3526,19 @@ select option{background:#171034 !important}
         b2("Stops: wick / close", Lo.length ? wick + " / " + (Lo.length - wick) : "-") +
         b2("Stopped, then hit TP within 24h", Lo.length ? after + " of " + Lo.length + (lateDone < Lo.length ? ' <small class="k">(' + (Lo.length - lateDone) + ' still watching)</small>' : '') : "-") +
         '</div>';
+      // Target reach: share of filled signals whose best move reached their own T1 / T2 (target) / T3
+      const lad = filled.map(s => ({ s, l: (snapOf(s).ladder || null) })).filter(o => o.l);
+      if (lad.length){
+        const rr = (o, k) => k === "t2" ? (o.s.tp - o.s.entry) * o.s.dir / Math.abs(o.s.entry - o.s.sl) : o.l[k] ? o.l[k].R : null;
+        const rowT = (name, arr) => { const cell = k => { const v = arr.filter(o => rr(o, k) > 0); return v.length ? Math.round(v.filter(o => reachedR(o.s, rr(o, k))).length / v.length * 100) + "%" : "-"; };
+          return '<tr><td>' + esc(name) + '</td><td>' + arr.length + '</td><td>' + cell("t1") + '</td><td>' + cell("t2") + '</td><td>' + cell("t3") + '</td></tr>'; };
+        const plays = [...new Set(lad.map(o => o.s.tf))];
+        h += '<h3>Target reach <button type="button" class="ibtn" data-info="infoReach" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
+          '<p class="note info-pop" id="infoReach">Share of filled signals whose best move after entry reached their own T1, T2 (the target used) and T3. New cards show the same figures for similar past setups. ' +
+          'Information only: it never blocks a trade, and figures under 30 signals are early.</p>' +
+          '<div class="tablewrap ptab"><table><thead><tr><th></th><th>Filled</th><th>T1</th><th>T2</th><th>T3</th></tr></thead><tbody>' +
+          rowT("All", lad) + plays.map(pk => rowT(PLAY[pk] || pk, lad.filter(o => o.s.tf === pk))).join("") + '</tbody></table></div>';
+      }
     }
     // Shadow stop variants: same signals, different stop distance (position size adjusts, so R is comparable)
     const shRows = a.map(s => jparse(s.shadow || "[]", [])).filter(v => v.length);
@@ -3494,11 +3565,12 @@ select option{background:#171034 !important}
       rows.map(r => '<tr' + (r.k === cur ? ' class="curv"' : '') + '><td>' + esc(r.n) + (r.st.amb ? ' <small class="k">(' + r.st.amb + ' ambiguous)</small>' : '') + '</td><td>' + r.st.closed +
         (r.st.open ? ' <small class="k">+' + r.st.open + ' open</small>' : '') + '</td><td>' + (r.st.wr === null ? "-" : r.st.wr.toFixed(0) + "%") + '</td><td class="' +
         (r.st.exp === null ? "" : r.st.exp >= 0 ? "pos" : "neg") + '">' + fR(r.st.exp) + '</td><td>' + (r.st.closed ? fR(r.st.total) : "-") + '</td></tr>').join("") + '</tbody></table></div>';
-    const exRows = varRows(["xA", "xB", "xC", "xD", "xT1", "xF1", "xF15", "xF2"], EXIT_LBL);
+    const exRows = varRows(["xA", "xB", "xC", "xD", "xE", "xCl", "xT1", "xF1", "xF15", "xF2"], EXIT_LBL);
     if (exRows.length){
       h += '<h3>Exit test <button type="button" class="ibtn" data-info="infoExit" aria-label="More info" title="More info" aria-expanded="false">i</button></h3>' +
         '<p class="note info-pop" id="infoExit">Each signal is also replayed with different ways of taking profit (paper only, no alerts): same entry, stop and expiry. ' +
-        'Results are in R before fees. A stop moved by a model (break-even, trailing) only counts from the next candle. Use this to see whether partial profits, break-even or trailing would have helped.</p>' + tbl(exRows, "xA");
+        'Results are in R before fees. A stop moved by a model (break-even, trailing) only counts from the next candle. "Confirmed swings" trails behind swing points with 2 candles on each side (5m candles while the trade is recent). ' +
+        '"Stop only on a candle close" ignores wicks and exits at the close of the first candle beyond the stop, so its losses can be bigger than 1R. Use this to see whether partial profits, break-even, trailing or close-based stops would have helped.</p>' + tbl(exRows, "xA");
     }
     const enRows = varRows(["xA", "eBOS", "eLvl"], ENTRY_LBL);
     if (enRows.length > 1){
@@ -3531,13 +3603,13 @@ select option{background:#171034 !important}
           (s.exp === null ? "" : s.exp >= 0 ? "pos" : "neg") + '">' + fR(s.exp) + '</td><td>' + (s.closed < 30 ? '<span class="k">early</span>' : '') + '</td></tr>';
       }).join("");
     };
-    const snapOf = s => jparse(s.snap || "{}", {});
     h += '<h3>Breakdown</h3><div class="tablewrap ptab"><table><thead><tr><th></th><th>Closed</th><th>Win %</th><th>Expectancy</th><th></th></tr></thead><tbody>' +
       grp("Grade", s => s.grade, k => "Grade " + k) + grp("Setup type", s => s.type, k => TYPE[k] || k) + grp("Playbook", s => s.tf, k => PLAY[k] || k + " trigger") +
       grp("Level type", s => (LT[s.lt] || { g: s.lt }).g, k => k) + grp("Direction", s => s.dir, k => k === 1 ? "Long" : "Short") +
       grp("Session", s => snapOf(s).session, k => k) + grp("Exchange", s => s.ex, k => EX[k] ? EX[k].name : k) +
       grp("Sweep quality", s => (snapOf(s).sweep || {}).grade, k => cap1(k)) + grp("Break quality", s => (snapOf(s).brk || {}).cls, k => cap1(k)) +
       grp("Entry model", s => (snapOf(s).retest || {}).zoneName, k => k) + grp("Retest confirmed on", s => (snapOf(s).retest || {}).tf, k => k + " candle") +
+      grp("Retest volume", s => ((snapOf(s).retest || {}).vol || {}).q, k => cap1(k)) +
       grp("Stop set by", s => (snapOf(s).stop || {}).struct, k => cap1(k)) +
       grp("Weakest rating", s => snapOf(s).weakest, k => k) +
       grp("Confidence", s => { const v = snapOf(s).conf; return v === undefined || v === null ? null : v >= 70 ? "70+" : v >= 55 ? "55-69" : "50-54"; }, k => k) +
@@ -3620,6 +3692,8 @@ select option{background:#171034 !important}
       tr("Ratings", rat || "-") +
       tr("Regime", p.regime ? [p.regime.trend, p.regime.vol, p.regime.alts, p.regime.fund].map(esc).join(" &middot; ") : "-") +
       tr("Outcome times", (s.fillT ? "Filled " + dt(s.fillT) : "Not filled") + (s.endT ? " &middot; ended " + dt(s.endT) : "") + (s.tpAfterSL ? " &middot; target after stop " + dt(s.tpAfterSL) : "")) +
+      tr("History at signal", p.hist ? histTxt(p.hist) : "Not enough history yet") +
+      tr("Retest volume", p.retest && p.retest.vol ? esc(p.retest.vol.q) + ": pullback " + (p.retest.vol.pbX === null ? "-" : p.retest.vol.pbX + "x") + ", response " + p.retest.vol.respX + "x" : "-") +
       tr("Paper tests", sh.map(vline).join("<br>") || "-") +
       tr("Data quality", (s.resTf ? "checked on " + s.resTf + " candles" : "not checked yet") + (s.note ? " &middot; " + esc(s.note) : "") + (s.status === "unresolved" ? " &middot; <span class='warn'>gap in exchange data</span>" : "")) +
       '</table></div>';
@@ -3659,7 +3733,8 @@ select option{background:#171034 !important}
                   "playbook","sweep_grade","sweep_depth_atr","break_class","entry_model","retest_tf","stop_set_by","stop_dist_15m_atr","risk_mult",
                   "s0_status","s50_status","s75_status","s100_status","s0_rr","s50_rr","s75_rr","s100_rr",
                   "conf","weakest","r_market","r_level","r_trigger","r_plan","t1","t1R","t2","t2R","t3","t3R","room_adr","late_day","regime_btc","regime_vol","regime_alts","regime_funding",
-                  "xA_R","xB_R","xC_R","xD_R","xT1_R","xF1_R","xF15_R","xF2_R","eBOS_R","eLvl_R"];
+                  "xA_R","xB_R","xC_R","xD_R","xT1_R","xF1_R","xF15_R","xF2_R","eBOS_R","eLvl_R",
+                  "xE_R","xCl_R","retest_vol","pullback_vol_x","response_vol_x","hist_n","hist_t1_pct","hist_t2_pct","hist_t3_pct"];
     const q = v => { const s = v === undefined || v === null ? "" : String(v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const iso = t => t ? new Date(t).toISOString() : "";
     return [cols.join(",")].concat(rows.map(s => { const p = jparse(s.snap || "{}", {}), at = p.atr || {};
@@ -3673,7 +3748,8 @@ select option{background:#171034 !important}
                                const vr = k => { const v = sh.find(z => z.k === k); return !v ? "" : v.status === "ambiguous" ? "amb" : v.R !== undefined ? v.R : v.status; };
                                return [p.conf, p.weakest, rt("market"), rt("level"), rt("trigger"), rt("plan"), ld.t1 ? ld.t1.p : "", ld.t1 ? ld.t1.R : "", ld.t2 ? ld.t2.p : "", ld.t2 ? ld.t2.R : "",
                                        ld.t3 ? ld.t3.p : "", ld.t3 ? ld.t3.R : "", ld.roomADR, ld.lateDay, g.trend, g.vol, g.alts, g.fund]
-                                 .concat(["xA","xB","xC","xD","xT1","xF1","xF15","xF2","eBOS","eLvl"].map(vr)); })())
+                                 .concat(["xA","xB","xC","xD","xT1","xF1","xF15","xF2","eBOS","eLvl","xE","xCl"].map(vr))
+                                 .concat((() => { const rv = (p.retest || {}).vol || {}, hs = p.hist || {}; return [rv.q, rv.pbX, rv.respX, hs.n, hs.t1, hs.t2, hs.t3]; })()); })())
               .map(q).join(","); })).join("\r\n");
   }
   function saveText(name, mime, text){
@@ -3759,7 +3835,7 @@ select option{background:#171034 !important}
     renderPerf();
   } };
   // test hooks (no effect on the app)
-  window.MW._t = { simStep, exitPlan, varStats, auditHtml, renderResults: (R) => renderResults(R), trackStep, stats, csvOf, logSignal, updateSignals, buildCtx, evaluate, setupAt, gradeOf, sweepEvent, bosOf, retestOf };
+  window.MW._t = { retestVol, histFor, simStep, exitPlan, varStats, auditHtml, renderResults: (R) => renderResults(R), trackStep, stats, csvOf, logSignal, updateSignals, buildCtx, evaluate, setupAt, gradeOf, sweepEvent, bosOf, retestOf };
   // ---------------- LIVE WATCH (per coin, max 3) ----------------
   const LIVE_MAX = 3;
   const LIVE_KEY = "mwLiveOn";
@@ -4245,7 +4321,8 @@ select option{background:#171034 !important}
           ...(() => { const p = jparse(s.snap || "{}", {}), z = (p.zones || []).find(q => q.k === (p.retest || {}).zone) || null, ld = p.ladder || {};
                       return { zone: z ? fmtPx(z.lo) + "-" + fmtPx(z.hi) : "", inv: p.invalid || "", t1: ld.t1 ? fmtPx(ld.t1.p) + " (" + ld.t1.R + "R)" : "",
                                t2: fmtPx(s.tp) + " (" + (+s.rr).toFixed(1) + "R)", why: (p.why || [])[0] || "", weak: (p.risks || [])[0] || "",
-                               conf: p.conf, weakest: p.weakest || "", level: p.level ? p.level.label : "", ready: (p.retest && p.retest.zoneName ? p.retest.zoneName + " held, " + p.retest.tf + " close" : "retest confirmed") }; })(),
+                               conf: p.conf, weakest: p.weakest || "",
+                               hist: p.hist ? ["t1", "t2", "t3"].filter(k => p.hist[k] !== null && p.hist[k] !== undefined).map(k => k.toUpperCase() + " " + p.hist[k] + "%").join(", ") + " of " + p.hist.n + " similar" : "", level: p.level ? p.level.label : "", ready: (p.retest && p.retest.zoneName ? p.retest.zoneName + " held, " + p.retest.tf + " close" : "retest confirmed") }; })(),
           base: s.base, dir: s.dir, grade: s.grade, type: TYPE[s.type] || s.type, tf: (PLAY[s.tf] || s.tf) + (s.type === "reversal" || s.tf === "5m" ? ", half risk" : ""), entry: fmtPx(s.entry), sl: fmtPx(s.sl), tp: fmtPx(s.tp), rr: (+s.rr).toFixed(2), exp: hhmm(s.exp) })) }));
       } catch(e){ window.MWNative.bgDone(JSON.stringify({ status: "Error: " + (e && e.message ? e.message : e), ready: [] })); }
     }
