@@ -123,3 +123,14 @@ New files: `ScanService.java`, `NativeBridge.java`, `AppWebClient.java`, `Prefs.
 - **More statistics**: median R, standard deviation and downside deviation.
 - Alerts include the history line. CSV adds the new fields.
 
+#### Version 4.4: scanner repair (no new indicators)
+- **Weak first break no longer blocks a later strong break**: every close beyond the swing (up to 12 candles after the reclaim) is graded and the first strong/acceptable one is used.
+- **Developing setups are remembered**: once a level is swept it is re-checked on every scan for up to 6 hours, even after price moves away from it, until it becomes invalid or expires. Proximity only discovers setups now.
+- **Retest replayed to the end**: a close through the retest zone or the sweep extreme after a confirmation cancels it.
+- **Fill checked before "missed"**: a setup whose entry was touched is no longer called "missed before a fill"; if price has since run halfway to target it is "Ran away", otherwise Ready with a note that the entry was already touched.
+- **Tracking from the alert minute**: signals start at the next whole minute and are replayed on 1m candles (about 16 hours), then 5m/15m/1H. A candle that started before the signal is never used; if a coarser candle has to be skipped, the signal says so.
+- **Hard vs blocked vs warning**: dead setups (invalid, expired, missed, not a real sweep, no room) are dropped. Alive setups that are not tradeable yet (R:R, obstacle, playbook rule, crowding, thin book) stay in Watching with "Needs: ...". Ratings, daily range and volume are warnings only. Up to 3 Ready and 5 Watching.
+- **Shorter cards**: Enter/Next, Plan, Invalid if, Expires, one reason and one warning. Entry zone, targets, stop, size, history, ratings and everything else moved to Details.
+- **One-line summary** with the main blocker, and a funnel in the scan log.
+- Historical target reach uses the current scanner version only.
+
