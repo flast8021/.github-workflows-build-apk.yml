@@ -1,1 +1,0 @@
-package android.media; public class RingtoneManager{ public static final int TYPE_NOTIFICATION=2; public static android.net.Uri getDefaultUri(int t){return null;} }
