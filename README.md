@@ -39,3 +39,26 @@ Never commit the `.jks` file or the passwords to the repo.
   and log only. Coin and direction moved to the top of the calculator. New glass neumorphic UI with results
   under the inputs and a live result strip. Only the INTERNET permission is kept. Workflow builds a signed APK.
 - **4.x**: Scanner, background scanner and scanner performance (removed in 5.0).
+
+## v5.1 exchange-assisted calculator
+- On startup the app loads the selected exchange's public USDT perpetual contract list. MEXC is the default; Binance and Bybit are selectable.
+- Coin search is populated from the selected exchange. Selecting a coin loads the public maximum leverage where the exchange exposes it, current funding rate, funding interval and available public fee metadata.
+- MEXC and Bybit expose symbol leverage in public instrument metadata. Binance does not expose the user's symbol leverage bracket without authenticated account access, so the app uses the public/default 125x ceiling and clearly treats it as a ceiling, not a recommendation.
+- Fee values are auto-filled from public contract metadata when available, otherwise exchange defaults are used. Personal VIP/promotional fee tiers may differ, so maker/taker remain editable.
+- Negative funding rates are supported.
+- Amount and initial leverage are calculated automatically from account balance, max risk and stop distance. Moving the leverage slider recalculates the required margin while keeping the same risk-sized position value.
+- Saved trades now use the phone's local SQLite database (`manner_wein_trades.db`). Existing v5.0 localStorage trades are migrated when found. The database is not cleared by normal app updates; trades remain until deleted in the app (or Android app data is manually cleared/uninstalled).
+- Market access is read-only and uses only public HTTPS endpoints. No API keys or trading permission are stored.
+
+## v5.2 always-fresh coin data
+- Coin list loads on app open (MEXC default), on exchange change, and again if older than 30 minutes.
+- Every coin selection makes fresh per-coin requests:
+  - MEXC: contract detail (leverage range, maker/taker, maintenance margin), funding rate + interval + next settlement, mark price.
+  - Binance: premium index (funding, next funding, mark price), funding interval. Leverage uses the 125x ceiling (per-coin brackets need an API key); standard fees.
+  - Bybit: instrument info (leverage range, funding interval), ticker (funding, next funding, mark price), risk limit (maintenance margin); standard fees.
+- The previous coin's fees/funding are cleared the moment a new coin is chosen, so old numbers are never shown as new.
+- Selected coin refreshes every 60 s while on screen and when returning to the app. "Updated hh:mm:ss" and a refresh button are shown.
+- A failed refresh is shown in amber with the time of the last good data. Late replies for an older selection are ignored.
+- MEXC requests go direct from the phone; if that fails the Cloudflare worker (mw-scanner.flast8021.workers.dev) is used as a fallback proxy.
+- Negative funding can be typed (full number keyboard).
+- Suggested leverage never exceeds the coin's maximum.

@@ -249,6 +249,36 @@ body.typing .seg{display:none}
 .undo button{height:34px; padding:0 14px; border-radius:10px; border:none; cursor:pointer; font-weight:800; color:#fff; background:linear-gradient(145deg,#3fb0ff,#1d5fd0)}
 .foot{text-align:center; color:var(--muted); font-size:11.5px; padding:6px 0 0; opacity:.7}
 
+
+.exchange-row{display:grid;grid-template-columns:145px 1fr;gap:10px;margin-bottom:10px}
+.coinmeta{font-size:12px;color:var(--muted);margin:7px 2px 0;min-height:18px;line-height:1.4}
+.coinmeta.ok{color:var(--cyan)} .coinmeta.bad{color:var(--amber)}
+.levwrap{padding:7px 2px 0}.levtop{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.levtop output{font-size:16px;font-weight:800;color:var(--cyan)}
+input[type=range]{width:100%;height:28px;background:transparent;accent-color:var(--blue);padding:0;box-shadow:none;border:0}
+input[type=range]::-webkit-slider-runnable-track{height:7px;border-radius:8px;background:linear-gradient(90deg,var(--blue2),var(--cyan))}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;border-radius:50%;margin-top:-7px;background:#eaf6ff;border:3px solid var(--blue);box-shadow:0 0 12px rgba(59,167,255,.65)}
+.apibadge{display:inline-block;padding:2px 7px;border-radius:8px;background:rgba(59,167,255,.12);color:var(--cyan);font-weight:700}
+
+
+.sugwrap{position:relative}
+.coinsug{position:absolute; left:0; right:0; top:50px; z-index:40; max-height:320px; overflow:auto; border-radius:14px; padding:6px;
+  background:rgba(12,24,42,0.97); border:1px solid var(--edge2); box-shadow:0 14px 30px rgba(0,0,0,.6)}
+.coinsug[hidden]{display:none}
+.coinsug .sg{display:flex; width:100%; align-items:baseline; gap:10px; padding:11px 10px; border:none; border-radius:10px; background:transparent; color:var(--text); text-align:left; font-family:inherit; cursor:pointer}
+.coinsug .sg:active{background:rgba(59,167,255,.15)}
+.coinsug .sg b{font-size:15px; min-width:56px} .coinsug .sg span{font-size:12px; color:var(--muted)}
+.coinsug .none{color:var(--muted); font-size:13px; padding:10px}
+#coinMeta.ok{padding:10px 12px; border-radius:14px; background:rgba(4,10,20,.40); box-shadow:inset 3px 3px 8px rgba(0,0,0,.5), inset -2px -2px 6px rgba(110,170,255,.04); color:var(--text)}
+#coinMeta.bad{cursor:pointer}
+.cm-top{display:flex; align-items:center; gap:8px; font-size:13.5px}
+.cm-ref{margin-left:auto; width:32px; height:32px; border-radius:10px; border:none; color:var(--cyan); font-size:17px; cursor:pointer;
+  background:linear-gradient(145deg, rgba(255,255,255,.08), rgba(0,0,0,.15)); box-shadow:3px 3px 7px var(--sh-dark), -2px -2px 6px var(--sh-light)}
+.cm-ref.spin{animation:spin .8s linear infinite} @keyframes spin{to{transform:rotate(360deg)}}
+.cm-grid{display:grid; grid-template-columns:auto 1fr; gap:5px 12px; margin-top:8px; font-size:12.5px}
+.cm-grid span{color:var(--muted)} .cm-grid b{text-align:right; font-variant-numeric:tabular-nums}
+.cm-foot{margin-top:8px; font-size:11.5px; color:var(--muted); line-height:1.45}
+
 @media (max-width:370px){
   .trade-head{grid-template-columns:1fr 140px}
   .tile.big .v{font-size:19px}
@@ -276,8 +306,12 @@ body.typing .seg{display:none}
       The liquidation price is an estimate. Your exchange's figure is the one that counts.</p>
 
     <!-- Coin + direction at the top -->
-    <div class="trade-head">
-      <div><label for="coin">Coin</label><input type="text" id="coin" placeholder="e.g. SOLUSDT" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+    <div class="exchange-row">
+      <div><label for="exchange">Exchange</label><select id="exchange"><option value="mexc">MEXC</option><option value="binance">Binance</option><option value="bybit">Bybit</option></select></div>
+      <div><label for="coin">Coin search</label><div class="sugwrap"><input type="text" id="coin" placeholder="Type BTC, SOL..." autocomplete="off" autocapitalize="characters" spellcheck="false"><div class="coinsug" id="coinSug" hidden></div></div></div>
+    </div>
+    <div class="coinmeta" id="coinMeta">Loading MEXC futures coins...</div>
+    <div class="trade-head" style="grid-template-columns:1fr">
       <div><label>Direction</label>
         <div class="dir" role="group" aria-label="Direction">
           <button id="btnLong" class="long on" type="button">LONG</button>
@@ -306,8 +340,8 @@ body.typing .seg{display:none}
       </select>
     </div>
     <div class="row">
-      <div><label for="margin" id="amtLabel">Amount (USDT)</label><input type="number" id="margin" inputmode="decimal" step="any" min="0"></div>
-      <div><label for="lev">Leverage (x)</label><input type="number" id="lev" inputmode="decimal" step="any" min="1"></div>
+      <div><label for="margin" id="amtLabel">Amount (USDT)</label><input type="number" id="margin" inputmode="decimal" step="any" min="0" readonly title="Calculated from balance, max risk and stop distance"></div>
+      <div class="levwrap"><div class="levtop"><label for="lev">Leverage</label><output id="levOut">1x</output></div><input type="range" id="lev" min="1" max="125" step="1" value="1"><div class="coinmeta" id="levScale">1x to 125x</div></div>
     </div>
     <div class="btns split">
       <button type="button" class="btn primary" id="btnSuggest">Suggest amount &amp; leverage</button>
@@ -358,7 +392,7 @@ body.typing .seg{display:none}
           <div><label for="mmr">Maint. margin %</label><input type="number" id="mmr" inputmode="decimal" step="any" min="0" value="0.1"></div>
         </div>
         <div class="row" style="margin-bottom:0">
-          <div><label for="fund">Funding rate %</label><input type="number" id="fund" inputmode="decimal" step="any" placeholder="e.g. 0.01"></div>
+          <div><label for="fund">Funding rate %</label><input type="number" id="fund" step="any" placeholder="e.g. -0.01"></div>
           <div><label for="fundn">Funding payments</label><input type="number" id="fundn" inputmode="numeric" step="1" min="0" value="0"></div>
         </div>
       </div>
@@ -420,7 +454,7 @@ body.typing .seg{display:none}
 (function(){
   "use strict";
 
-  const state = { dir:"long", calc:null, risk:null, calcErr:"" };
+  const state = { dir:"long", calc:null, risk:null, calcErr:"", autoNotional:null, markets:{mexc:[],binance:[],bybit:[]}, selected:null };
   const $ = id => document.getElementById(id);
   // Minimum reward:risk can never be below 1
   const minRR = () => { const v = parseFloat($("minrr").value); return isNaN(v) ? 1.5 : Math.max(1, v); };
@@ -686,6 +720,7 @@ body.typing .seg{display:none}
   }
 
   function refresh(){
+    $("levOut").textContent = (num("lev") || 1) + "x";
     try { calculate(); } catch(e){ state.calc = null; state.risk = null; clearOut(); renderRisk(); }
     updateSaveState(); updateSetSum();
     errToast();
@@ -706,7 +741,7 @@ body.typing .seg{display:none}
   }
 
   // ---------------- DATA / EXPORT ----------------
-  const CSV_COLS = ["Time","Coin","Direction",
+  const CSV_COLS = ["Time","Exchange","Coin","Direction",
     "Entry","Stop Loss","Take Profit","Leverage","Margin Mode","Entry Order","Maker %","Taker %","Funding %","Funding Payments",
     "Position Value","Quantity","Initial Margin","Cost incl. Fees",
     "Gross Profit at TP","Net Profit at TP","Gross Loss at SL","Net Loss at SL",
@@ -718,6 +753,7 @@ body.typing .seg{display:none}
     const r = v => v === undefined || v === null ? "" : Number(v.toFixed(6));
     return {
       Time: stamp(new Date()),
+      Exchange: $("exchange").value.toUpperCase(),
       Coin: ($("coin").value || "").trim().toUpperCase(),
       Direction: state.dir.toUpperCase(),
       "Entry": c ? c.entry : "", "Stop Loss": c ? c.sl : "", "Take Profit": c ? c.tp : "",
@@ -743,7 +779,7 @@ body.typing .seg{display:none}
     const coin = ($("coin").value || "COIN").trim().toUpperCase();
     const L = [];
     L.push("------" + date + "--------");
-    L.push(coin + " " + state.dir.toUpperCase());
+    L.push($("exchange").value.toUpperCase() + " · " + coin + " " + state.dir.toUpperCase());
     L.push("--------------------------");
     if (c){
       L.push("-----Trade Data------------");
@@ -771,19 +807,27 @@ body.typing .seg{display:none}
     return L.join("\n");
   }
 
-  // Same storage key as before, so trades saved in earlier versions are kept
+  // Phone-local SQLite is primary. Older localStorage logs are migrated once.
   const LOG_KEY = "tradeChecklistLog";
-  // Uses app storage when allowed; otherwise keeps the log in memory for this session
-  const storageOK = (() => { try { const k = "__tc_test"; localStorage.setItem(k, "1"); localStorage.removeItem(k); return true; } catch(e){ return false; } })();
+  const hasNativeDb = !!(window.NativeTradeDb && NativeTradeDb.getTradeLog && NativeTradeDb.setTradeLog);
+  const storageOK = (() => { try { const k="__tc_test"; localStorage.setItem(k,"1"); localStorage.removeItem(k); return true; } catch(e){ return false; } })();
   let memLog = [];
-  const getLog = () => {
-    if (!storageOK) return memLog.slice();
-    try { return JSON.parse(localStorage.getItem(LOG_KEY)) || []; } catch(e){ return memLog.slice(); }
-  };
-  const setLog = l => {
-    memLog = l.slice();
-    if (storageOK){ try { localStorage.setItem(LOG_KEY, JSON.stringify(l)); } catch(e){} }
-  };
+  function getLog(){
+    if(hasNativeDb){ try { const x=JSON.parse(NativeTradeDb.getTradeLog()||"[]"); return Array.isArray(x)?x:[]; } catch(e){ return []; } }
+    if(!storageOK) return memLog.slice();
+    try{return JSON.parse(localStorage.getItem(LOG_KEY))||[]}catch(e){return memLog.slice()}
+  }
+  function setLog(l){
+    memLog=l.slice();
+    if(hasNativeDb){ try{return NativeTradeDb.setTradeLog(JSON.stringify(l))}catch(e){return false} }
+    if(storageOK)try{localStorage.setItem(LOG_KEY,JSON.stringify(l))}catch(e){}
+    return true;
+  }
+  if(hasNativeDb && storageOK){
+    try{const native=JSON.parse(NativeTradeDb.getTradeLog()||"[]"), old=JSON.parse(localStorage.getItem(LOG_KEY)||"[]");
+      if(!native.length && Array.isArray(old) && old.length) NativeTradeDb.setTradeLog(JSON.stringify(old));
+    }catch(e){}
+  }
   const escH = s => String(s).replace(/[&<>"']/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]));
 
   function renderLog(){
@@ -797,7 +841,7 @@ body.typing .seg{display:none}
       const isL = String(r.Direction || "").toUpperCase() !== "SHORT";
       const rs = r["Risk Status"] || "";
       return '<div class="lg-item"><div><div class="c">' + escH(r.Coin || "–") + '<em class="' + (isL ? "L" : "S") + '">' + escH(r.Direction || "") + '</em></div>' +
-        '<div class="tm">' + escH(fmtTime(r.Time)) + (rs ? ' · risk ' + escH(rs) : '') + '</div></div>' +
+        '<div class="tm">' + escH(fmtTime(r.Time)) + (r.Exchange ? ' · '+escH(r.Exchange) : '') + (rs ? ' · risk ' + escH(rs) : '') + '</div></div>' +
         '<button type="button" class="logdel" data-i="' + idx + '" title="Delete this trade" aria-label="Delete ' + escH(r.Coin || "trade") + '">\u2715</button>' +
         '<div class="nums"><span>R:R <b>' + (typeof rrv === "number" ? "1:" + rrv.toFixed(2) : "–") + '</b></span>' +
         '<span>TP / SL <b>' + (typeof pv === "number" && typeof lv === "number" ? pv.toFixed(2) + " / " + lv.toFixed(2) : "–") + '</b></span>' +
@@ -898,6 +942,7 @@ body.typing .seg{display:none}
   ["entry","sl","tp","margin","lev","maker","taker","fund","fundn","minrr","mmr","bal","maxrisk"].forEach(id => $(id).addEventListener("input", refresh));
   ["sizeBy","entryType","mode"].forEach(id => $(id).addEventListener("change", refresh));
   ["entry","sl","bal","maxrisk","mode","sizeBy"].forEach(id => $(id).addEventListener("input", () => $("suggNote").classList.remove("show")));
+  ["entry","sl","bal","maxrisk","mode","sizeBy"].forEach(id => $(id).addEventListener("input", () => { if(num("entry")>0&&num("sl")>0&&num("bal")>0) suggestSize(true); }));
   ["coin","entry","sl","tp","margin","lev","bal"].forEach(id => $(id).addEventListener("input", () => { $(id).classList.remove("missing"); updateSaveState(); }));
   $("minrr").addEventListener("change", () => {
     const v = parseFloat($("minrr").value);
@@ -913,7 +958,7 @@ body.typing .seg{display:none}
   // Size = balance x risk % / loss per coin at the stop (incl. fees).
   // Leverage = lowest that keeps margin at or under 20% of balance, capped so liquidation stays 1.5x the stop distance away.
   // After 2 losses in a row (Actual P/L in the log) risk is halved.
-  function suggestSize(){
+  function suggestSize(silent){
     const note = $("suggNote"), say = (m, ok) => { note.innerHTML = m; note.className = "msg " + (ok ? "info" : "wrn") + " show"; };
     const entry = num("entry"), sl = num("sl"), bal = num("bal");
     const miss = [];
@@ -932,7 +977,8 @@ body.typing .seg{display:none}
     let qty = bal * risk / 100 / perCoin, notional = qty * entry;
     const d = Math.abs(sl - entry) / entry, k = dir === 1 ? (1 - mmr) : (1 + mmr);
     const denom = mmr + 1.5 * d * k;
-    const levCap = mode === "isolated" ? Math.max(1, Math.floor(1 / denom)) : 125;
+    const coinMax = Math.max(1, +$("lev").max || 125);
+    const levCap = Math.min(coinMax, mode === "isolated" ? Math.max(1, Math.floor(1 / denom)) : 125);
     let lev = Math.max(1, Math.ceil(notional / (0.2 * bal)));
     if (lev > levCap){
       lev = levCap;
@@ -940,17 +986,25 @@ body.typing .seg{display:none}
       if (notional > maxN){ notional = maxN; qty = notional / entry; why.push("size cut so margin stays at 20% of balance at the safe leverage"); }
     }
     if (mode === "cross" && notional > bal / denom){ notional = bal / denom; qty = notional / entry; why.push("size cut so cross liquidation stays well past the stop"); }
+    state.autoNotional = notional;
     const sizeBy = $("sizeBy").value;
     const amt = sizeBy === "margin" ? notional / lev : sizeBy === "notional" ? notional : sizeBy === "qty" ? qty : notional * (1 / lev + 2 * taker);
     $("margin").value = sizeBy === "qty" ? Number(qty.toPrecision(6)) : Number(amt.toFixed(2));
     $("lev").value = lev;
     refresh();
     const c = state.calc;
-    say("<b>Suggested:</b> " + (sizeBy === "qty" ? Number(qty.toPrecision(6)) + " coins" : fmt$(amt)) + " at <b>" + lev + "x</b> " +
+    if(!silent) say("<b>Suggested:</b> " + (sizeBy === "qty" ? Number(qty.toPrecision(6)) + " coins" : fmt$(amt)) + " at <b>" + lev + "x</b> " +
         "(position " + fmt$(notional) + ", margin " + fmt$(notional / lev) + "). Loss at SL about " + (c ? fmt$(Math.abs(c.loss)) : "-") +
         " = " + (c ? (Math.abs(c.loss) / bal * 100).toFixed(2) : "-") + "% of balance." + (why.length ? "<br>" + why.join(". ") + "." : ""), true);
   }
-  $("btnSuggest").addEventListener("click", suggestSize);
+  function applyAutoAmountForLev(){
+    if(!(state.autoNotional>0)) return;
+    const N=state.autoNotional, lev=Math.max(1,num("lev")||1), taker=(num("taker")||0)/100, sizeBy=$("sizeBy").value;
+    const amt=sizeBy==="margin"?N/lev:sizeBy==="notional"?N:sizeBy==="qty"?(num("entry")>0?N/num("entry"):0):N*(1/lev+2*taker);
+    if(amt>0) $("margin").value=sizeBy==="qty"?Number(amt.toPrecision(6)):Number(amt.toFixed(2));
+  }
+  $("lev").addEventListener("input",()=>{applyAutoAmountForLev();refresh()});
+  $("btnSuggest").addEventListener("click", () => suggestSize(false));
 
   // ---------------- ACTIONS & LOG ----------------
   $("btnCopy").addEventListener("click", () => copyText(summaryText()));
@@ -1088,13 +1142,249 @@ body.typing .seg{display:none}
     wrap.appendChild(b);
   });
 
+
+  // ---------------- EXCHANGE MARKET DATA (v5.2) ----------------
+  // 1) The coin LIST is loaded when the app opens / the exchange changes (for fast search).
+  // 2) Every time a coin is SELECTED, its details are fetched fresh from the exchange
+  //    (leverage range, fees, funding rate + interval, maintenance margin, mark price).
+  // 3) The selected coin re-refreshes every 60 s while the app is on screen, and on return to the app.
+  // MEXC: phone requests go direct; if that fails, the old Cloudflare worker is used as a fallback proxy.
+  const MEXC_PROXY = "https://mw-scanner.flast8021.workers.dev";
+  const EX_NAME = { mexc:"MEXC", binance:"Binance", bybit:"Bybit" };
+  // Standard (non-VIP) rates, only used when the exchange does not publish fees without an API key
+  const EX_DEFAULTS = { mexc:{maker:0, taker:0.02, maxLev:125}, binance:{maker:0.02, taker:0.05, maxLev:125}, bybit:{maker:0.02, taker:0.055, maxLev:100} };
+  const NATIVE_NET = !!(window.MarketBridge && typeof window.MarketBridge.get === "function");
+  let reqSeq = 0; const pending = {};
+  window.MWMarketResult = function(id, ok, payload){
+    const q = pending[id]; if (!q) return; delete pending[id];
+    ok ? q.resolve(payload) : q.reject(new Error(payload));
+  };
+  function rawGet(url){
+    if (!NATIVE_NET) return fetch(url, { cache:"no-store" }).then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); });
+    return new Promise((resolve, reject) => {
+      const id = "r" + (++reqSeq); pending[id] = { resolve, reject };
+      setTimeout(() => { if (pending[id]){ delete pending[id]; reject(new Error("No reply in 15 s")); } }, 15000);
+      window.MarketBridge.get(id, url);
+    });
+  }
+  async function getJSON(url){
+    const isMexc = url.indexOf("contract.mexc.com") !== -1;
+    const viaProxy = () => rawGet(MEXC_PROXY + "/?url=" + encodeURIComponent(url));
+    let txt;
+    if (isMexc && !NATIVE_NET) txt = await viaProxy();                 // browser preview: CORS needs the worker
+    else {
+      try { txt = await rawGet(url); }
+      catch(e){ if (!isMexc) throw e; txt = await viaProxy(); }        // MEXC blocked/slow: use the worker
+    }
+    const j = JSON.parse(txt);
+    if (isMexc && j && j.success === false) throw new Error("MEXC: " + (j.message || j.code));
+    if (j && j.retCode !== undefined && j.retCode !== 0) throw new Error("Bybit: " + j.retMsg);
+    if (j && j.code !== undefined && typeof j.code === "number" && j.code < 0) throw new Error("Binance: " + j.msg);
+    return j;
+  }
+  const numOr = (v, d) => { const n = parseFloat(v); return isFinite(n) ? n : d; };
+  const hms = t => { const d = new Date(t), p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()) + ":" + p(d.getSeconds()); };
+  const hm = t => { const d = new Date(t), p = n => String(n).padStart(2, "0"); return p(d.getHours()) + ":" + p(d.getMinutes()); };
+  const normSym = x => String(x || "").toUpperCase().replace(/[^A-Z0-9]/g, "");
+
+  const mk = { list:{ mexc:[], binance:[], bybit:[] }, listT:{}, sel:null, selSeq:0, detail:null, timer:null };
+
+  // ---- coin list ----
+  async function loadExchange(ex){
+    const meta = $("coinMeta");
+    meta.className = "coinmeta"; meta.textContent = "Loading " + EX_NAME[ex] + " futures coins...";
+    try {
+      let list = [];
+      if (ex === "mexc"){
+        const j = await getJSON("https://contract.mexc.com/api/v1/contract/detail");
+        list = (j.data || []).filter(x => /_USDT$/.test(x.symbol) && (x.state === 0 || x.state === undefined))
+          .map(x => ({ symbol: normSym(x.symbol), api: x.symbol, base: x.baseCoin || x.symbol.split("_")[0], name: x.displayNameEn || "" }));
+      } else if (ex === "binance"){
+        const j = await getJSON("https://fapi.binance.com/fapi/v1/exchangeInfo");
+        list = (j.symbols || []).filter(x => x.status === "TRADING" && x.contractType === "PERPETUAL" && x.quoteAsset === "USDT")
+          .map(x => ({ symbol: x.symbol, api: x.symbol, base: x.baseAsset, name: "" }));
+      } else {
+        let cursor = "", all = [];
+        for (let i = 0; i < 5; i++){
+          const j = await getJSON("https://api.bybit.com/v5/market/instruments-info?category=linear&limit=1000" + (cursor ? "&cursor=" + encodeURIComponent(cursor) : ""));
+          all = all.concat((j.result && j.result.list) || []);
+          cursor = j.result && j.result.nextPageCursor; if (!cursor) break;
+        }
+        list = all.filter(x => x.status === "Trading" && x.quoteCoin === "USDT" && /Perpetual/.test(x.contractType || ""))
+          .map(x => ({ symbol: x.symbol, api: x.symbol, base: x.baseCoin, name: "" }));
+      }
+      if (!list.length) throw new Error("empty list");
+      mk.list[ex] = list.sort((a, b) => a.base.localeCompare(b.base)); mk.listT[ex] = Date.now();
+      if ($("exchange").value !== ex) return;
+      const cur = $("coin").value.trim();
+      if (cur && findCoin(cur)) selectCoin(cur);
+      else { meta.className = "coinmeta ok"; meta.innerHTML = '<span class="apibadge">' + EX_NAME[ex] + '</span> ' + list.length + ' USDT perpetual coins. Type a coin to search.'; }
+    } catch(e){
+      if ($("exchange").value !== ex) return;
+      meta.className = "coinmeta bad"; meta.textContent = "Could not load " + EX_NAME[ex] + " coins (" + e.message + "). Tap here to retry.";
+    }
+  }
+  function findCoin(v){ const n = normSym(v); return mk.list[$("exchange").value].find(x => x.symbol === n || x.base === n || x.symbol === n + "USDT"); }
+
+  // ---- search dropdown (works in every Android WebView, unlike <datalist>) ----
+  function renderSug(){
+    const box = $("coinSug"), q = normSym($("coin").value), list = mk.list[$("exchange").value];
+    if (!q || !list.length || (mk.sel && mk.sel.symbol === q)){ box.hidden = true; return; }
+    const starts = list.filter(x => x.base.startsWith(q) || x.symbol.startsWith(q));
+    const has = list.filter(x => !starts.includes(x) && x.symbol.includes(q));
+    const arr = starts.concat(has).slice(0, 8);
+    if (!arr.length){ box.innerHTML = '<div class="sg none">No ' + EX_NAME[$("exchange").value] + ' USDT perpetual matches "' + escH(q) + '"</div>'; box.hidden = false; return; }
+    box.innerHTML = arr.map(x => '<button type="button" class="sg" data-s="' + x.symbol + '"><b>' + escH(x.base) + '</b><span>' + escH(x.symbol) + ' · Perpetual</span></button>').join("");
+    box.hidden = false;
+  }
+  $("coinSug").addEventListener("mousedown", e => e.preventDefault());   // keep focus so the tap registers
+  $("coinSug").addEventListener("click", e => { const b = e.target.closest(".sg[data-s]"); if (!b) return; $("coinSug").hidden = true; $("coin").blur(); selectCoin(b.dataset.s); });
+
+  // ---- per-coin fresh details ----
+  async function fetchDetail(ex, c){
+    const d = { maxLev:null, minLev:1, maker:null, taker:null, feeSrc:"standard", funding:null, interval:null, nextFund:null, mark:null, mmr:null, levSrc:"exchange", name:c.name };
+    if (ex === "mexc"){
+      const [det, fr, tk] = await Promise.all([
+        getJSON("https://contract.mexc.com/api/v1/contract/detail?symbol=" + c.api),
+        getJSON("https://contract.mexc.com/api/v1/contract/funding_rate/" + c.api),
+        getJSON("https://contract.mexc.com/api/v1/contract/ticker?symbol=" + c.api).catch(() => null)
+      ]);
+      const x = Array.isArray(det.data) ? det.data[0] : det.data;
+      if (!x) throw new Error("MEXC has no details for " + c.api);
+      if (x.state !== undefined && x.state !== 0) throw new Error(c.api + " is not trading on MEXC right now");
+      d.maxLev = numOr(x.maxLeverage, null); d.minLev = numOr(x.minLeverage, 1);
+      if (x.makerFeeRate != null){ d.maker = numOr(x.makerFeeRate, 0) * 100; d.taker = numOr(x.takerFeeRate, 0) * 100; d.feeSrc = "exchange"; }
+      if (x.maintenanceMarginRate != null) d.mmr = numOr(x.maintenanceMarginRate, null) * 100;
+      d.name = x.displayNameEn || d.name;
+      const f = fr.data || {};
+      if (f.fundingRate != null) d.funding = numOr(f.fundingRate, 0) * 100;
+      d.interval = numOr(f.collectCycle, null); d.nextFund = numOr(f.nextSettleTime, null);
+      const t = tk && tk.data; if (t) d.mark = numOr(t.fairPrice, numOr(t.lastPrice, null));
+    } else if (ex === "binance"){
+      const [pi, fi] = await Promise.all([
+        getJSON("https://fapi.binance.com/fapi/v1/premiumIndex?symbol=" + c.api),
+        getJSON("https://fapi.binance.com/fapi/v1/fundingInfo").catch(() => [])
+      ]);
+      d.funding = numOr(pi.lastFundingRate, 0) * 100; d.nextFund = numOr(pi.nextFundingTime, null); d.mark = numOr(pi.markPrice, null);
+      const fx = (Array.isArray(fi) ? fi : []).find(z => z.symbol === c.api);
+      d.interval = fx ? numOr(fx.fundingIntervalHours, 8) : 8;          // only symbols with a non-standard interval are listed
+      d.maxLev = EX_DEFAULTS.binance.maxLev; d.levSrc = "ceiling";        // per-coin brackets need an API key on Binance
+    } else {
+      const [ins, tk, rl] = await Promise.all([
+        getJSON("https://api.bybit.com/v5/market/instruments-info?category=linear&symbol=" + c.api),
+        getJSON("https://api.bybit.com/v5/market/tickers?category=linear&symbol=" + c.api),
+        getJSON("https://api.bybit.com/v5/market/risk-limit?category=linear&symbol=" + c.api).catch(() => null)
+      ]);
+      const x = ins.result && ins.result.list && ins.result.list[0];
+      if (!x) throw new Error("Bybit has no details for " + c.api);
+      if (x.status !== "Trading") throw new Error(c.api + " is not trading on Bybit right now");
+      d.maxLev = numOr(x.leverageFilter && x.leverageFilter.maxLeverage, null); d.minLev = numOr(x.leverageFilter && x.leverageFilter.minLeverage, 1);
+      d.interval = numOr(x.fundingInterval, 480) / 60;
+      const t = tk.result && tk.result.list && tk.result.list[0];
+      if (t){ d.funding = numOr(t.fundingRate, 0) * 100; d.nextFund = numOr(t.nextFundingTime, null); d.mark = numOr(t.markPrice, null); }
+      const tier = rl && rl.result && rl.result.list && rl.result.list[0];
+      if (tier && tier.maintenanceMargin != null) d.mmr = numOr(tier.maintenanceMargin, null) * 100;
+    }
+    if (d.maker === null){ d.maker = EX_DEFAULTS[ex].maker; d.taker = EX_DEFAULTS[ex].taker; d.feeSrc = "standard"; }
+    if (!(d.maxLev >= 1)){ d.maxLev = EX_DEFAULTS[ex].maxLev; d.levSrc = "ceiling"; }
+    d.t = Date.now();
+    return d;
+  }
+
+  function applyDetail(ex, c, d){
+    const mx = Math.max(1, Math.floor(d.maxLev)), mn = Math.max(1, Math.floor(d.minLev || 1));
+    const lev = $("lev"); lev.min = mn; lev.max = mx;
+    if (+lev.value > mx) lev.value = mx; if (+lev.value < mn) lev.value = mn;
+    $("levScale").textContent = mn + "x to " + mx + "x" + (d.levSrc === "ceiling" ? " (" + EX_NAME[ex] + " ceiling – check the coin's limit in the app)" : " on " + EX_NAME[ex] + " for " + c.base);
+    $("maker").value = Number(d.maker.toFixed(5)); $("taker").value = Number(d.taker.toFixed(5));
+    $("fund").value = d.funding === null ? "" : Number(d.funding.toFixed(6));
+    if (d.mmr !== null && d.mmr > 0) $("mmr").value = Number(d.mmr.toFixed(4));
+    if (!(num("fundn") > 0) && d.funding !== null) $("fundn").value = "0";
+    const fCls = "";
+    $("coinMeta").className = "coinmeta ok";
+    $("coinMeta").innerHTML =
+      '<div class="cm-top"><span class="apibadge">' + EX_NAME[ex] + '</span> <b>' + escH(c.base) + ' / USDT</b> Perpetual' +
+        '<button type="button" class="cm-ref" id="coinRef" aria-label="Refresh coin data" title="Refresh">&#x21bb;</button></div>' +
+      '<div class="cm-grid">' +
+        '<span>Leverage</span><b>' + mn + '–' + mx + 'x' + (d.levSrc === "ceiling" ? '*' : '') + '</b>' +
+        '<span>Funding</span><b class="' + fCls + '">' + (d.funding === null ? '–' : (d.funding > 0 ? '+' : '') + d.funding.toFixed(4) + '%') + (d.interval ? ' / ' + d.interval + 'h' : '') + '</b>' +
+        '<span>Next funding</span><b>' + (d.nextFund ? hm(d.nextFund) : '–') + '</b>' +
+        '<span>Fees M / T</span><b>' + Number(d.maker.toFixed(4)) + '% / ' + Number(d.taker.toFixed(4)) + '%' + (d.feeSrc === "standard" ? '*' : '') + '</b>' +
+        '<span>Mark price</span><b>' + (d.mark ? fmtPx(d.mark) : '–') + '</b>' +
+        '<span>Maint. margin</span><b>' + (d.mmr ? Number(d.mmr.toFixed(4)) + '%' : 'default') + '</b>' +
+      '</div>' +
+      '<div class="cm-foot">Updated ' + hms(d.t) + ' · refreshes every 60 s' +
+        (d.feeSrc === "standard" || d.levSrc === "ceiling" ? '<br>* ' + (d.feeSrc === "standard" ? 'standard ' + EX_NAME[ex] + ' fee (your VIP/promo rate may differ). ' : '') + (d.levSrc === "ceiling" ? 'Binance only shows per-coin leverage with an API key.' : '') : '') + '</div>';
+    $("coinRef").addEventListener("click", () => selectCoin(c.symbol, true));
+  }
+
+  async function selectCoin(v, isRefresh){
+    const ex = $("exchange").value, c = findCoin(v);
+    if (!c){ mk.sel = null; mk.detail = null; return; }
+    const seq = ++mk.selSeq;                                    // newer selection wins; late replies are ignored
+    const changed = !mk.sel || mk.sel.symbol !== c.symbol || mk.sel.ex !== ex;
+    mk.sel = { symbol: c.symbol, ex }; $("coin").value = c.symbol; $("coin").classList.remove("missing"); $("coinSug").hidden = true;
+    if (changed){
+      // Never keep the previous coin's numbers while the new ones load
+      mk.detail = null; $("fund").value = ""; $("maker").value = EX_DEFAULTS[ex].maker; $("taker").value = EX_DEFAULTS[ex].taker;
+      $("coinMeta").className = "coinmeta"; $("coinMeta").textContent = "Fetching live " + EX_NAME[ex] + " data for " + c.symbol + "...";
+      refresh();
+    } else if (isRefresh){ const r = $("coinRef"); if (r) r.classList.add("spin"); }
+    try {
+      const d = await fetchDetail(ex, c);
+      if (seq !== mk.selSeq) return;
+      mk.detail = d; applyDetail(ex, c, d);
+      if (num("entry") > 0 && num("sl") > 0 && num("bal") > 0) suggestSize(true); else refresh();
+      startTimer();
+    } catch(e){
+      if (seq !== mk.selSeq) return;
+      $("coinMeta").className = "coinmeta bad";
+      $("coinMeta").textContent = (mk.detail ? "Refresh failed (" + e.message + "). Values shown are from " + hms(mk.detail.t) + ". Tap to retry."
+                                             : "Could not fetch " + c.symbol + " data (" + e.message + "). Fees/funding are NOT up to date. Tap to retry.");
+    }
+  }
+  function startTimer(){
+    clearInterval(mk.timer);
+    mk.timer = setInterval(() => { if (!document.hidden && mk.sel && $("exchange").value === mk.sel.ex) selectCoin(mk.sel.symbol, true); }, 60000);
+  }
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    const ex = $("exchange").value;
+    if (!mk.listT[ex] || Date.now() - mk.listT[ex] > 30 * 60000) loadExchange(ex);     // coin list: refresh after 30 min
+    else if (mk.sel && (!mk.detail || Date.now() - mk.detail.t > 60000)) selectCoin(mk.sel.symbol, true);
+  });
+
+  $("exchange").addEventListener("change", () => {
+    const ex = $("exchange").value, d = EX_DEFAULTS[ex];
+    mk.sel = null; mk.detail = null; mk.selSeq++; clearInterval(mk.timer);
+    $("coin").value = ""; $("coinSug").hidden = true; $("fund").value = ""; $("maker").value = d.maker; $("taker").value = d.taker;
+    $("lev").min = 1; $("lev").max = d.maxLev; $("levScale").textContent = "1x to " + d.maxLev + "x";
+    loadExchange(ex); refresh();
+  });
+  let sugT = null;
+  $("coin").addEventListener("input", () => {
+    if (mk.sel && normSym($("coin").value) !== mk.sel.symbol){ mk.sel = null; mk.detail = null; mk.selSeq++; clearInterval(mk.timer); $("fund").value = ""; refresh();
+      $("coinMeta").className = "coinmeta"; $("coinMeta").textContent = "Pick a coin from the list."; }
+    clearTimeout(sugT); sugT = setTimeout(renderSug, 120);
+  });
+  $("coin").addEventListener("keydown", e => { if (e.key === "Enter"){ const c = findCoin($("coin").value); if (c){ e.preventDefault(); $("coin").blur(); selectCoin(c.symbol); } } });
+  $("coin").addEventListener("focus", renderSug);
+  $("coin").addEventListener("blur", () => setTimeout(() => { $("coinSug").hidden = true; const c = findCoin($("coin").value); if (c && (!mk.sel || mk.sel.symbol !== c.symbol)) selectCoin(c.symbol); }, 150));
+  $("coinMeta").addEventListener("click", e => {
+    if (!$("coinMeta").classList.contains("bad")) return;
+    const ex = $("exchange").value;
+    if (mk.sel) selectCoin(mk.sel.symbol, true); else loadExchange(ex);
+  });
+  window.MW = window.MW || {}; window.MW.market = { selectCoin, loadExchange, state: mk };
+
+
   // ---------------- REMEMBER BALANCE + CALCULATOR RULES ----------------
   const BAL_KEY = "mwLastBalance";
   $("bal").addEventListener("input", () => {
     const v = parseFloat($("bal").value);
     try { if (v > 0) localStorage.setItem(BAL_KEY, String(v)); else localStorage.removeItem(BAL_KEY); } catch(e){}
   });
-  const CP_KEY = "mwCalcPrefs", CP = ["maker","taker","minrr","maxrisk","mmr","entryType","sizeBy","mode"];
+  const CP_KEY = "mwCalcPrefs", CP = ["exchange","maker","taker","minrr","maxrisk","mmr","entryType","sizeBy","mode"];
   function loadCalcPrefs(){
     try { const p = JSON.parse(localStorage.getItem(CP_KEY) || "{}"); CP.forEach(id => { if (p[id] !== undefined && p[id] !== "") $(id).value = p[id]; }); } catch(e){}
     try { const b = localStorage.getItem(BAL_KEY); if (b) $("bal").value = b; } catch(e){}
@@ -1126,7 +1416,7 @@ body.typing .seg{display:none}
   document.addEventListener("focusin", e => { if (e.target.matches && e.target.matches("input[type=text], input[type=number]")){ clearTimeout(typT); document.body.classList.add("typing"); } });
   document.addEventListener("focusout", () => { clearTimeout(typT); typT = setTimeout(() => { if (!document.activeElement || !document.activeElement.matches("input[type=text], input[type=number]")) document.body.classList.remove("typing"); }, 120); });
 
-  setDir("long"); renderLog(); markNav(true);
+  setDir("long"); renderLog(); markNav(true); loadExchange($("exchange").value);
   document.querySelectorAll(".cy").forEach(e => e.textContent = new Date().getFullYear());
 })();
 </script>
