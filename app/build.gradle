@@ -10,8 +10,8 @@ android {
         applicationId "com.mannerwein.app"
         minSdk 26
         targetSdk 35
-        versionCode 11
-        versionName "5.2"
+        versionCode 12
+        versionName "5.3"
     }
 
     // One fixed key (from GitHub secrets) so every new APK installs over the old one and keeps the history database.

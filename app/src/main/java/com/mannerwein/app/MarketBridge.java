@@ -45,7 +45,7 @@ final class MarketBridge {
                 conn.setUseCaches(false);
                 conn.setRequestProperty("Cache-Control", "no-cache");
                 conn.setRequestProperty("Accept", "application/json");
-                conn.setRequestProperty("User-Agent", "MannerWein-Android/5.2");
+                conn.setRequestProperty("User-Agent", "MannerWein-Android/5.3");
                 int code = conn.getResponseCode();
                 InputStream in = code >= 200 && code < 300 ? conn.getInputStream() : conn.getErrorStream();
                 result = read(in);

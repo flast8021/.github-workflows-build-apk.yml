@@ -1,4 +1,4 @@
-# Manner Wein — Android App (v5.0)
+# Manner Wein — Android App (v5.3)
 
 Trade calculator, risk management and trade log for crypto futures, packaged as an Android app.
 The scanner, background scanner, scanner performance history and checklist were removed in v5.0.
@@ -62,3 +62,14 @@ Never commit the `.jks` file or the passwords to the repo.
 - MEXC requests go direct from the phone; if that fails the Cloudflare worker (mw-scanner.flast8021.workers.dev) is used as a fallback proxy.
 - Negative funding can be typed (full number keyboard).
 - Suggested leverage never exceeds the coin's maximum.
+
+## v5.3 safer risk checks
+- Max risk per trade must be 0.1%–50%; anything else is rejected with an error.
+- Risk above 5% of balance makes the Risk Management card, "Risk of balance" box and bottom risk chip flash red until fixed. Tapping the risk chip opens a risk-details pop-up.
+- Amount and leverage are only re-sized when you change entry, stop loss, balance or max risk — never by the 60-second refresh.
+- Maint. margin resets on every coin/exchange change; 0.5% default when the exchange doesn't give it (always on Binance). Bybit uses its lowest risk tier.
+- Fees, funding and maint. margin you type are kept on refresh, with an info button and "Use the exchange value" link.
+- Binance leverage shows "Check on exchange". Amber info buttons mark any value not loaded from the exchange.
+- Picking a new coin clears entry, SL, TP, amount and leverage, and scrolls to the LONG/SHORT selector.
+- Stop loss and take profit are optional. Without a stop, a red "No stop loss set" item shows the worst-case loss.
+- Desktop/tablet layout (same file is used for the web version); logo embedded in index.html.
